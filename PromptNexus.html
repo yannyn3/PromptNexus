@@ -1,0 +1,2902 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PromptNexus - 高级提示词管理工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #5D5CDE;
+            --primary-light: #7a79e3;
+            --primary-dark: #4a49b8;
+            --secondary: #FF5C8D;
+            --accent: #39D1AF;
+            --accent-dark: #25A58A;
+            --bg-light: rgba(255, 255, 255, 0.7);
+            --bg-dark: rgba(24, 24, 24, 0.8);
+            --text-light: #333;
+            --text-dark: #f0f0f0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            transition: background-color 0.3s ease;
+            overflow-x: hidden;
+            background-color: #f8f9fa;
+        }
+
+        .dark body {
+            background-color: #181818;
+        }
+
+        .glass {
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .glass::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                45deg,
+                transparent 0%,
+                rgba(255, 255, 255, 0.03) 50%,
+                transparent 100%
+            );
+            transform: rotate(30deg);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .glass > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .dark .glass {
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .dark .glass::before {
+            background: linear-gradient(
+                45deg,
+                transparent 0%,
+                rgba(255, 255, 255, 0.01) 50%,
+                transparent 100%
+            );
+        }
+
+        .glass-light {
+            background: var(--bg-light);
+            color: var(--text-light);
+        }
+
+        .glass-dark {
+            background: var(--bg-dark);
+            color: var(--text-dark);
+        }
+
+        .card-3d {
+            transform-style: preserve-3d;
+            perspective: 1000px;
+            transition: transform 0.6s, box-shadow 0.6s;
+            position: relative;
+            z-index: 1;
+            backface-visibility: hidden;
+        }
+
+        .card-3d::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: -1;
+            border-radius: inherit;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0));
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            transition: all 0.6s ease;
+            opacity: 0;
+        }
+
+        .card-3d:hover::before {
+            opacity: 1;
+        }
+
+        .card-3d:hover {
+            transform: translateY(-8px) rotateX(10deg) rotateY(-5deg);
+            box-shadow: 0 20px 40px rgba(93, 92, 222, 0.25);
+        }
+
+        .dark .card-3d:hover {
+            box-shadow: 0 20px 40px rgba(93, 92, 222, 0.3);
+        }
+
+        .card-3d:active {
+            transform: translateY(-2px) rotateX(5deg) rotateY(-2deg);
+            transition: transform 0.1s;
+        }
+
+        .prompt-tag {
+            background-color: rgba(93, 92, 222, 0.2);
+            color: var(--primary);
+            border-radius: 12px;
+            padding: 3px 10px;
+            font-size: 0.75rem;
+            display: inline-block;
+            margin-right: 6px;
+            margin-bottom: 6px;
+            box-shadow: 0 2px 5px rgba(93, 92, 222, 0.15);
+            transition: all 0.3s ease;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+
+        .prompt-tag:hover {
+            background-color: rgba(93, 92, 222, 0.3);
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 4px 8px rgba(93, 92, 222, 0.25);
+        }
+
+        .dark .prompt-tag {
+            background-color: rgba(93, 92, 222, 0.3);
+            box-shadow: 0 2px 5px rgba(93, 92, 222, 0.3);
+        }
+        
+        .dark .prompt-tag:hover {
+            box-shadow: 0 4px 8px rgba(93, 92, 222, 0.4);
+        }
+
+        #scene-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.35;
+            pointer-events: none;
+        }
+
+        .dark #scene-container {
+            opacity: 0.4;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background-color: rgba(93, 92, 222, 0.3);
+            border-radius: 10px;
+        }
+
+        .prompt-card {
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .prompt-card:hover {
+            transform: scale(1.02);
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+        }
+
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.7s;
+            z-index: -1;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-light);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(93, 92, 222, 0.4);
+        }
+
+        .btn-primary:hover::before {
+            left: 100%;
+        }
+
+        .btn-primary:active {
+            background-color: var(--primary-dark);
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background-color: var(--accent);
+            color: white;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--accent-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(57, 209, 175, 0.4);
+        }
+
+        .btn-secondary:active {
+            transform: translateY(0);
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes slideInLeft {
+            from { opacity: 0; transform: translateX(-30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        @keyframes floatAnimation {
+            0% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(1deg); }
+            100% { transform: translateY(0) rotate(0deg); }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes rotateGradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .animate-slide-in-right {
+            animation: slideInRight 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .animate-slide-in-left {
+            animation: slideInLeft 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .animate-scale-in {
+            animation: scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .animate-float {
+            animation: floatAnimation 6s ease-in-out infinite;
+        }
+
+        .animate-pulse {
+            animation: pulse 3s ease-in-out infinite;
+        }
+
+        .animate-delayed {
+            animation-delay: 0.2s;
+        }
+
+        .gradient-text {
+            background: linear-gradient(90deg, var(--primary), #FF5C8D);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            background-size: 200% 200%;
+            animation: rotateGradient 8s ease infinite;
+        }
+
+        .gradient-card {
+            background: linear-gradient(135deg, var(--primary-light), var(--primary-dark));
+            color: white;
+        }
+
+        .loading-spinner {
+            border: 3px solid rgba(93, 92, 222, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid var(--primary);
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #dashboard-tab.active, #prompts-tab.active, #settings-tab.active {
+            border-bottom: 3px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .navlink {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .navlink::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 3px;
+            background-color: var(--primary);
+            transition: width 0.3s ease;
+        }
+
+        .navlink:hover::after {
+            width: 100%;
+        }
+
+        .navlink.active::after {
+            width: 100%;
+        }
+
+        /* 3D Button effect */
+        .btn-3d {
+            transform-style: preserve-3d;
+            transition: all 0.3s ease;
+            transform: translateZ(0);
+        }
+
+        .btn-3d:hover {
+            transform: translateZ(5px);
+        }
+
+        .btn-3d:active {
+            transform: translateZ(2px) translateY(2px);
+        }
+
+        /* Glass Cards */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 16px;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .dark .glass-card {
+            background: rgba(30, 30, 30, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .glass-card:hover {
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.2);
+            transform: translateY(-5px);
+        }
+
+        .dark .glass-card:hover {
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Notification Badge */
+        .badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: var(--secondary);
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: bold;
+            animation: pulse 2s infinite;
+        }
+
+        /* Shimmer effect */
+        .shimmer {
+            background: linear-gradient(
+                to right,
+                rgba(255, 255, 255, 0) 0%,
+                rgba(255, 255, 255, 0.2) 20%,
+                rgba(255, 255, 255, 0) 40%
+            );
+            background-size: 200% 100%;
+            animation: shimmerAnimation 2s infinite;
+        }
+
+        @keyframes shimmerAnimation {
+            0% {
+                background-position: -100% 0;
+            }
+            100% {
+                background-position: 100% 0;
+            }
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: relative;
+        }
+
+        .tooltip::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%) scale(0.8);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .tooltip:hover::after {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) scale(1);
+            bottom: calc(100% + 5px);
+        }
+
+        /* Status Indicator */
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .status-active {
+            background-color: #4CAF50;
+            box-shadow: 0 0 10px #4CAF50;
+            animation: pulse 2s infinite;
+        }
+
+        .status-pending {
+            background-color: #FFC107;
+            box-shadow: 0 0 10px #FFC107;
+            animation: pulse 2s infinite;
+        }
+
+        .status-inactive {
+            background-color: #9E9E9E;
+        }
+
+        /* Modern Input Styles */
+        .modern-input {
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid rgba(93, 92, 222, 0.3);
+            padding: 8px 0;
+            transition: all 0.3s ease;
+            outline: none;
+            width: 100%;
+        }
+
+        .modern-input:focus {
+            border-bottom-color: var(--primary);
+        }
+
+        /* Background Swirl Effect */
+        .bg-swirl {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 30% 70%, rgba(93, 92, 222, 0.05) 0%, transparent 40%),
+                        radial-gradient(circle at 70% 30%, rgba(255, 92, 141, 0.05) 0%, transparent 40%);
+            z-index: -2;
+            opacity: 0.6;
+        }
+
+        .dark .bg-swirl {
+            opacity: 0.2;
+        }
+
+        /* Notification Styles */
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            background: white;
+            color: #333;
+            font-size: 14px;
+            z-index: 100;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+        }
+
+        .notification.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .dark .notification {
+            background: #2d2d2d;
+            color: #f3f3f3;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+        }
+
+        .notification .close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            cursor: pointer;
+        }
+
+        /* Vercel Deploy Button */
+        .deploy-btn {
+            background-color: #000;
+            color: #fff;
+            border-radius: 6px;
+            padding: 12px 20px;
+            display: inline-flex;
+            align-items: center;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .deploy-btn:hover {
+            background-color: #333;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .deploy-btn img {
+            margin-right: 8px;
+            height: 16px;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <div id="scene-container"></div>
+    <div class="bg-swirl"></div>
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <header class="mb-8">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="flex items-center mb-4 md:mb-0">
+                    <div class="w-12 h-12 rounded-xl glass bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center mr-3 shadow-lg animate-float">
+                        <i class="fas fa-brain text-white text-xl"></i>
+                    </div>
+                    <h1 class="text-3xl font-bold gradient-text">PromptNexus</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="sync-button" class="glass glass-light dark:glass-dark rounded-full px-4 py-2 flex items-center shadow-lg transition-all duration-300 hover:shadow-xl hover:bg-gradient-to-r hover:from-violet-500/80 hover:to-fuchsia-500/80 hover:text-white transform hover:scale-105 btn-3d tooltip" data-tooltip="同步到GitHub">
+                        <i class="fas fa-sync-alt mr-2"></i>
+                        <span>同步</span>
+                    </button>
+                    <button id="add-prompt-button" class="glass glass-light dark:glass-dark rounded-full px-4 py-2 flex items-center shadow-lg transition-all duration-300 hover:shadow-xl hover:bg-gradient-to-r hover:from-violet-500/80 hover:to-fuchsia-500/80 hover:text-white transform hover:scale-105 btn-3d">
+                        <i class="fas fa-plus mr-2"></i>
+                        <span>新建提示词</span>
+                    </button>
+                    <a id="deploy-button" href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fyourusername%2Fpromptnexus" target="_blank" class="hidden md:flex glass glass-light dark:glass-dark rounded-full px-4 py-2 items-center shadow-lg transition-all duration-300 hover:shadow-xl hover:text-white transform hover:scale-105 btn-3d tooltip" data-tooltip="部署到Vercel">
+                        <i class="fas fa-cloud-upload-alt mr-2"></i>
+                        <span>部署</span>
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <div class="flex border-b border-gray-200 dark:border-gray-700 mb-6">
+            <button id="dashboard-tab" class="active navlink py-2 px-4 font-medium text-gray-600 dark:text-gray-300 hover:text-primary flex items-center">
+                <i class="fas fa-chart-pie mr-2"></i>
+                数据总览
+            </button>
+            <button id="prompts-tab" class="navlink py-2 px-4 font-medium text-gray-600 dark:text-gray-300 hover:text-primary flex items-center">
+                <i class="fas fa-list mr-2"></i>
+                提示词库
+                <span id="prompts-count" class="ml-2 bg-violet-100 dark:bg-violet-900 text-violet-800 dark:text-violet-200 text-xs rounded-full px-2 py-0.5"></span>
+            </button>
+            <button id="settings-tab" class="navlink py-2 px-4 font-medium text-gray-600 dark:text-gray-300 hover:text-primary flex items-center">
+                <i class="fas fa-cog mr-2"></i>
+                设置
+            </button>
+        </div>
+
+        <!-- Main Content Area -->
+        <div id="content-area">
+            <!-- Dashboard View -->
+            <div id="dashboard-view" class="animate-fade-in">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <!-- Total Prompts Card -->
+                    <div class="glass glass-light dark:glass-dark rounded-2xl p-6 card-3d">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm opacity-70">总提示词数</p>
+                                <h2 class="text-3xl font-bold mt-2" id="total-prompts-count">0</h2>
+                            </div>
+                            <div class="w-12 h-12 rounded-full flex items-center justify-center bg-purple-100 dark:bg-purple-900">
+                                <i class="fas fa-file-alt text-purple-500 dark:text-purple-300"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <div class="text-xs opacity-70">本周新增</div>
+                            <div class="text-sm font-medium mt-1 flex items-center">
+                                <span id="new-prompts-count">0</span>
+                                <i class="fas fa-arrow-up text-green-500 ml-2"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Categories Card -->
+                    <div class="glass glass-light dark:glass-dark rounded-2xl p-6 card-3d animate-delayed">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm opacity-70">分类数量</p>
+                                <h2 class="text-3xl font-bold mt-2" id="total-categories-count">0</h2>
+                            </div>
+                            <div class="w-12 h-12 rounded-full flex items-center justify-center bg-blue-100 dark:bg-blue-900">
+                                <i class="fas fa-folder text-blue-500 dark:text-blue-300"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <div class="text-xs opacity-70">最多提示词的分类</div>
+                            <div class="text-sm font-medium mt-1" id="top-category">无分类</div>
+                        </div>
+                    </div>
+
+                    <!-- Usage Card -->
+                    <div class="glass glass-light dark:glass-dark rounded-2xl p-6 card-3d animate-delayed">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm opacity-70">使用次数</p>
+                                <h2 class="text-3xl font-bold mt-2" id="total-usage-count">0</h2>
+                            </div>
+                            <div class="w-12 h-12 rounded-full flex items-center justify-center bg-green-100 dark:bg-green-900">
+                                <i class="fas fa-bolt text-green-500 dark:text-green-300"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <div class="text-xs opacity-70">本周使用</div>
+                            <div class="text-sm font-medium mt-1 flex items-center">
+                                <span id="week-usage-count">0</span>
+                                <i class="fas fa-arrow-up text-green-500 ml-2"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Row -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <!-- Categories Distribution -->
+                    <div class="glass glass-light dark:glass-dark rounded-2xl p-6 transform transition-all duration-500 hover:shadow-xl">
+                        <h3 class="text-lg font-semibold mb-4 gradient-text">分类分布</h3>
+                        <div class="w-full h-64">
+                            <canvas id="categories-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Usage Trend -->
+                    <div class="glass glass-light dark:glass-dark rounded-2xl p-6 transform transition-all duration-500 hover:shadow-xl">
+                        <h3 class="text-lg font-semibold mb-4 gradient-text">使用趋势</h3>
+                        <div class="w-full h-64">
+                            <canvas id="usage-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Prompts -->
+                <div class="glass glass-light dark:glass-dark rounded-2xl p-6 mb-8 transform transition-all duration-500 hover:shadow-xl">
+                    <h3 class="text-lg font-semibold mb-4 gradient-text">最近使用</h3>
+                    <div id="recent-prompts-list" class="space-y-4">
+                        <p class="text-center text-gray-500 dark:text-gray-400 py-4">暂无使用记录</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prompts Library View -->
+            <div id="prompts-view" class="animate-fade-in hidden">
+                <div class="flex flex-col md:flex-row justify-between mb-6">
+                    <div class="glass glass-light dark:glass-dark rounded-full px-4 py-2 mb-4 md:mb-0 flex items-center w-full md:w-1/2 focus-within:shadow-lg transition-shadow duration-300">
+                        <i class="fas fa-search mr-2 text-gray-400"></i>
+                        <input id="search-input" type="text" placeholder="搜索提示词..." class="bg-transparent border-none outline-none flex-1 min-w-0 text-base">
+                    </div>
+                    <div class="flex space-x-3">
+                        <select id="category-filter" class="glass glass-light dark:glass-dark rounded-full px-4 py-2 outline-none text-base">
+                            <option value="all">所有分类</option>
+                        </select>
+                        <div class="glass glass-light dark:glass-dark rounded-full flex">
+                            <button id="grid-view-btn" class="px-3 py-2 text-primary tooltip" data-tooltip="网格视图">
+                                <i class="fas fa-th-large"></i>
+                            </button>
+                            <button id="list-view-btn" class="px-3 py-2 text-gray-400 tooltip" data-tooltip="列表视图">
+                                <i class="fas fa-list"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Prompts Grid -->
+                <div id="prompts-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Prompts will be added here dynamically -->
+                    <p id="no-prompts-message" class="text-center text-gray-500 dark:text-gray-400 py-4 col-span-3">暂无提示词，点击右上角"新建提示词"按钮添加</p>
+                </div>
+            </div>
+
+            <!-- Settings View -->
+            <div id="settings-view" class="animate-fade-in hidden space-y-6">
+                <div class="glass glass-light dark:glass-dark rounded-2xl p-6 transform transition-all duration-500 hover:shadow-xl">
+                    <div class="flex items-center mb-4">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center bg-blue-100 dark:bg-blue-900 text-blue-500 dark:text-blue-300 mr-3">
+                            <i class="fas fa-database"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold gradient-text">数据管理</h3>
+                    </div>
+                    <p class="text-sm opacity-70 mb-4">导出或导入您的提示词数据，确保不会丢失宝贵的提示词集合。</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <button id="export-data-btn" class="btn-primary rounded-xl px-4 py-3 flex items-center justify-center">
+                            <i class="fas fa-file-export mr-2"></i>
+                            <span>导出数据</span>
+                        </button>
+                        <button id="import-data-btn" class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-xl px-4 py-3 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+                            <i class="fas fa-file-import mr-2"></i>
+                            <span>导入数据</span>
+                        </button>
+                        <input type="file" id="import-file-input" accept=".json" class="hidden">
+                    </div>
+                </div>
+
+                <div class="glass glass-light dark:glass-dark rounded-2xl p-6 transform transition-all duration-500 hover:shadow-xl">
+                    <div class="flex items-center mb-4">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center bg-purple-100 dark:bg-purple-900 text-purple-500 dark:text-purple-300 mr-3">
+                            <i class="fas fa-folder"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold gradient-text">分类管理</h3>
+                    </div>
+                    <p class="text-sm opacity-70 mb-4">创建和管理提示词分类，帮助您更好地组织提示词库。</p>
+                    <div class="flex items-center mb-4">
+                        <input type="text" id="new-category-input" placeholder="添加新分类..." class="glass glass-light dark:glass-dark rounded-full px-4 py-2 outline-none flex-1 mr-2 text-base">
+                        <button id="add-category-btn" class="btn-primary rounded-full w-10 h-10 flex items-center justify-center transform transition hover:scale-110">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div id="categories-list" class="space-y-2 mt-4">
+                        <!-- Categories will be added here dynamically -->
+                        <p id="no-categories-message" class="text-center text-gray-500 dark:text-gray-400 py-2">暂无分类</p>
+                    </div>
+                </div>
+
+                <div class="glass glass-light dark:glass-dark rounded-2xl p-6 transform transition-all duration-500 hover:shadow-xl">
+                    <div class="flex items-center mb-4">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center bg-green-100 dark:bg-green-900 text-green-500 dark:text-green-300 mr-3">
+                            <i class="fas fa-cloud"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold gradient-text">云同步设置</h3>
+                    </div>
+                    <div class="bg-blue-50 dark:bg-blue-900/30 rounded-xl p-4 mb-4">
+                        <div class="flex">
+                            <div class="text-blue-500 dark:text-blue-300 mr-3 text-xl">
+                                <i class="fas fa-info-circle"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-blue-700 dark:text-blue-300 mb-1">提示</h4>
+                                <p class="text-sm text-blue-600 dark:text-blue-400">
+                                    部署到Vercel后，您可以使用环境变量配置GitHub令牌，无需手动输入。
+                                    <a href="#deploy-instructions" class="underline">查看部署指南</a>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-sm opacity-70 mb-4">通过GitHub Gist存储和同步您的提示词数据</p>
+                    <div id="github-settings-container">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-2">GitHub Token</label>
+                            <div class="relative">
+                                <input type="password" id="github-token-input" placeholder="输入您的GitHub Personal Access Token" class="glass glass-light dark:glass-dark rounded-xl pl-10 pr-4 py-2 outline-none w-full text-base">
+                                <div class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                                    <i class="fas fa-key"></i>
+                                </div>
+                            </div>
+                            <p class="text-xs opacity-70 mt-1">需要 gist 权限的 <a href="https://github.com/settings/tokens/new" target="_blank" class="text-primary">Personal Access Token</a></p>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-2">Gist ID (可选)</label>
+                            <div class="relative">
+                                <input type="text" id="gist-id-input" placeholder="填写现有Gist ID或留空创建新的" class="glass glass-light dark:glass-dark rounded-xl pl-10 pr-4 py-2 outline-none w-full text-base">
+                                <div class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                                    <i class="fas fa-bookmark"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <button id="save-github-settings" class="btn-primary rounded-xl px-6 py-3 w-full flex items-center justify-center">
+                            <i class="fas fa-save mr-2"></i>
+                            保存设置
+                        </button>
+                    </div>
+                    <div id="vercel-env-settings" class="hidden">
+                        <div class="flex items-center p-4 mb-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
+                            <i class="fas fa-check-circle text-green-500 text-xl mr-3"></i>
+                            <div>
+                                <h4 class="font-medium text-green-700 dark:text-green-300">已配置Vercel环境变量</h4>
+                                <p class="text-sm text-green-600 dark:text-green-400">系统正在使用Vercel环境中配置的GitHub Token</p>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-2">状态</label>
+                            <div class="glass glass-light dark:glass-dark rounded-xl p-3 flex items-center">
+                                <div class="status-indicator status-active"></div>
+                                <span>已连接到GitHub</span>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-2">上次同步</label>
+                            <div class="glass glass-light dark:glass-dark rounded-xl p-3">
+                                <span id="last-sync-time">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass glass-light dark:glass-dark rounded-2xl p-6 transform transition-all duration-500 hover:shadow-xl" id="deploy-instructions">
+                    <div class="flex items-center mb-4">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-300 mr-3">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold gradient-text">部署指南</h3>
+                    </div>
+                    <p class="text-sm opacity-70 mb-4">将PromptNexus部署到Vercel，实现更好的数据同步和保存功能。</p>
+                    
+                    <div class="space-y-4">
+                        <div class="glass-card p-4">
+                            <h4 class="font-medium mb-2 flex items-center">
+                                <span class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 w-6 h-6 rounded-full flex items-center justify-center mr-2">1</span>
+                                创建GitHub仓库
+                            </h4>
+                            <p class="text-sm">在GitHub上创建一个新仓库，用于存放PromptNexus代码。</p>
+                        </div>
+                        
+                        <div class="glass-card p-4">
+                            <h4 class="font-medium mb-2 flex items-center">
+                                <span class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 w-6 h-6 rounded-full flex items-center justify-center mr-2">2</span>
+                                准备代码结构
+                            </h4>
+                            <p class="text-sm mb-2">将应用拆分为以下文件结构:</p>
+                            <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded-md text-xs font-mono">
+                                <div>PromptNexus/</div>
+                                <div class="ml-4">├── index.html</div>
+                                <div class="ml-4">├── styles.css</div>
+                                <div class="ml-4">├── scripts/</div>
+                                <div class="ml-8">├── app.js</div>
+                                <div class="ml-8">├── storage.js</div>
+                                <div class="ml-8">├── ui.js</div>
+                                <div class="ml-8">└── scene.js</div>
+                                <div class="ml-4">├── api/</div>
+                                <div class="ml-8">├── config.js</div>
+                                <div class="ml-8">└── sync.js</div>
+                                <div class="ml-4">└── vercel.json</div>
+                            </div>
+                        </div>
+                        
+                        <div class="glass-card p-4">
+                            <h4 class="font-medium mb-2 flex items-center">
+                                <span class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 w-6 h-6 rounded-full flex items-center justify-center mr-2">3</span>
+                                配置Vercel
+                            </h4>
+                            <p class="text-sm mb-2">在<a href="https://vercel.com" target="_blank" class="text-primary">Vercel</a>中导入GitHub仓库，并设置环境变量:</p>
+                            <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded-md text-xs font-mono">
+                                <div>GITHUB_TOKEN = [您的GitHub Personal Access Token]</div>
+                                <div>GIST_ID = [可选，用于存储数据的Gist ID]</div>
+                            </div>
+                        </div>
+                        
+                        <div class="glass-card p-4">
+                            <h4 class="font-medium mb-2 flex items-center">
+                                <span class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 w-6 h-6 rounded-full flex items-center justify-center mr-2">4</span>
+                                部署应用
+                            </h4>
+                            <p class="text-sm">点击下方按钮，一键部署PromptNexus到Vercel。</p>
+                            <a href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fyourusername%2Fpromptnexus" target="_blank" class="deploy-btn mt-3 w-full flex items-center justify-center">
+                                <svg width="16" height="16" viewBox="0 0 116 100" fill="#fff" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M57.5 0L115 100H0L57.5 0Z"></path>
+                                </svg>
+                                <span class="ml-2">使用Vercel部署</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass glass-light dark:glass-dark rounded-2xl p-6 transform transition-all duration-500 hover:shadow-xl">
+                    <div class="flex items-center mb-4">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center bg-red-100 dark:bg-red-900 text-red-500 dark:text-red-300 mr-3">
+                            <i class="fas fa-info-circle"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold gradient-text">应用信息</h3>
+                    </div>
+                    <div class="space-y-2 mb-4">
+                        <p class="flex justify-between">
+                            <span class="opacity-70">应用名称:</span> 
+                            <span class="font-medium">PromptNexus</span>
+                        </p>
+                        <p class="flex justify-between">
+                            <span class="opacity-70">版本:</span> 
+                            <span class="font-medium">1.1.0</span>
+                        </p>
+                        <p class="flex justify-between">
+                            <span class="opacity-70">作者:</span> 
+                            <span class="font-medium">您</span>
+                        </p>
+                        <p class="flex justify-between">
+                            <span class="opacity-70">运行环境:</span> 
+                            <span class="font-medium" id="environment-type">Poe Canvas</span>
+                        </p>
+                    </div>
+                    <div class="flex space-x-4">
+                        <button id="reset-app-btn" class="bg-red-500 hover:bg-red-600 text-white rounded-xl px-4 py-2 transition-colors flex items-center">
+                            <i class="fas fa-trash-alt mr-2"></i>
+                            重置应用
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Prompt Modal -->
+    <div id="prompt-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="glass glass-light dark:glass-dark rounded-2xl p-6 w-full max-w-2xl mx-4 animate-scale-in transform transition-all duration-300 card-3d">
+            <div class="flex justify-between items-center mb-6">
+                <h3 id="modal-title" class="text-xl font-bold gradient-text">创建新提示词</h3>
+                <button id="close-modal-btn" class="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-gray-100 transition-transform duration-300 hover:rotate-90">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <form id="prompt-form">
+                <input type="hidden" id="prompt-id">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">标题</label>
+                    <div class="relative">
+                        <input type="text" id="prompt-title" required="" class="glass glass-light dark:glass-dark rounded-xl px-4 py-2 pl-10 outline-none w-full text-base" placeholder="输入提示词标题...">
+                        <div class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                            <i class="fas fa-heading"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">分类</label>
+                    <div class="relative">
+                        <select id="prompt-category" class="glass glass-light dark:glass-dark rounded-xl px-4 py-2 pl-10 outline-none w-full text-base appearance-none">
+                            <option value="">无分类</option>
+                        </select>
+                        <div class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                            <i class="fas fa-folder"></i>
+                        </div>
+                        <div class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none">
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">标签 (用逗号分隔)</label>
+                    <div class="relative">
+                        <input type="text" id="prompt-tags" class="glass glass-light dark:glass-dark rounded-xl px-4 py-2 pl-10 outline-none w-full text-base" placeholder="AI, 写作, 创意...">
+                        <div class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                            <i class="fas fa-tags"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium mb-2">内容</label>
+                    <div class="relative">
+                        <textarea id="prompt-content" required="" rows="6" class="glass glass-light dark:glass-dark rounded-xl px-4 py-2 pl-10 outline-none w-full text-base" placeholder="输入提示词内容..."></textarea>
+                        <div class="absolute left-3 top-4 text-gray-400">
+                            <i class="fas fa-pen-fancy"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="cancel-prompt-btn" class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-xl px-6 py-2 hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-300 flex items-center">
+                        <i class="fas fa-times mr-2"></i>
+                        取消
+                    </button>
+                    <button type="submit" id="save-prompt-btn" class="btn-primary rounded-xl px-6 py-2 flex items-center">
+                        <i class="fas fa-save mr-2"></i>
+                        保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="glass glass-light dark:glass-dark rounded-2xl p-6 w-full max-w-md mx-4 animate-fade-in">
+            <h3 id="confirm-title" class="text-xl font-bold mb-4">确认操作</h3>
+            <p id="confirm-message" class="mb-6">您确定要执行此操作吗？</p>
+            <div class="flex justify-end space-x-3">
+                <button id="cancel-confirm-btn" class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-xl px-4 py-2 hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-300 flex items-center">
+                    <i class="fas fa-times mr-2"></i>
+                    取消
+                </button>
+                <button id="confirm-action-btn" class="bg-red-500 text-white rounded-xl px-4 py-2 hover:bg-red-600 transition-all duration-300 flex items-center">
+                    <i class="fas fa-check mr-2"></i>
+                    确认
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Notification Template -->
+    <div id="notification-template" class="notification hidden">
+        <div class="flex items-start">
+            <div class="notification-icon mr-3 text-xl"></div>
+            <div class="flex-1">
+                <h3 class="notification-title font-medium mb-1"></h3>
+                <p class="notification-message text-sm"></p>
+            </div>
+            <button class="close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Script -->
+    <script>
+        // Check for dark mode preference
+        function updateTheme() {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        }
+        
+        updateTheme();
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateTheme);
+
+        // Notification System
+        function showNotification(type, title, message, duration = 5000) {
+            const template = document.getElementById('notification-template');
+            const notification = template.cloneNode(true);
+            notification.id = 'notification-' + Date.now();
+            notification.classList.remove('hidden');
+            
+            const titleEl = notification.querySelector('.notification-title');
+            const messageEl = notification.querySelector('.notification-message');
+            const iconEl = notification.querySelector('.notification-icon');
+            
+            titleEl.textContent = title;
+            messageEl.textContent = message;
+            
+            if (type === 'success') {
+                iconEl.innerHTML = '<i class="fas fa-check-circle"></i>';
+                iconEl.className = iconEl.className + ' text-green-500';
+            } else if (type === 'error') {
+                iconEl.innerHTML = '<i class="fas fa-exclamation-circle"></i>';
+                iconEl.className = iconEl.className + ' text-red-500';
+            } else if (type === 'info') {
+                iconEl.innerHTML = '<i class="fas fa-info-circle"></i>';
+                iconEl.className = iconEl.className + ' text-blue-500';
+            } else if (type === 'warning') {
+                iconEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+                iconEl.className = iconEl.className + ' text-yellow-500';
+            }
+            
+            document.body.appendChild(notification);
+            setTimeout(() => notification.classList.add('show'), 100);
+            
+            notification.querySelector('.close').addEventListener('click', () => {
+                notification.classList.remove('show');
+                setTimeout(() => notification.remove(), 500);
+            });
+            
+            if (duration > 0) {
+                setTimeout(() => {
+                    notification.classList.remove('show');
+                    setTimeout(() => notification.remove(), 500);
+                }, duration);
+            }
+            
+            return notification;
+        }
+
+        // Check if running in Vercel environment
+        const isVercelEnv = window.location.hostname.includes('vercel.app') || 
+                          window.location.hostname.includes('.now.sh');
+
+        // Update environment display
+        if (isVercelEnv) {
+            document.getElementById('environment-type').textContent = 'Vercel';
+            
+            // Show Vercel-specific UI elements and hide GitHub token input
+            if (document.getElementById('vercel-env-settings') && document.getElementById('github-settings-container')) {
+                document.getElementById('vercel-env-settings').classList.remove('hidden');
+                document.getElementById('github-settings-container').classList.add('hidden');
+            }
+        } else {
+            // Show deploy button for Poe Canvas users
+            if (document.getElementById('deploy-button')) {
+                document.getElementById('deploy-button').classList.remove('hidden');
+            }
+        }
+
+        // 3D Background Scene
+        function initThreeJsScene() {
+            const container = document.getElementById('scene-container');
+            if (!container) return;
+
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
+            
+            // Create advanced particles
+            const particles = [];
+            const particleCount = 100;
+            
+            // Create different geometries for variety
+            const geometries = [
+                new THREE.OctahedronGeometry(0.12, 0),
+                new THREE.TetrahedronGeometry(0.15, 0),
+                new THREE.IcosahedronGeometry(0.1, 0),
+                new THREE.SphereGeometry(0.08, 12, 12)
+            ];
+            
+            // Create different materials with gradient colors
+            const colors = [
+                0x5D5CDE, // Primary
+                0x8A6FFF, // Purple
+                0x4158D0, // Blue
+                0xC850C0, // Pink
+                0xFFCC70, // Amber
+                0x39D1AF  // Teal
+            ];
+            
+            const materials = colors.map(color => 
+                new THREE.MeshBasicMaterial({
+                    color: color,
+                    transparent: true,
+                    opacity: 0.7
+                })
+            );
+            
+            // Create particles
+            for (let i = 0; i < particleCount; i++) {
+                // Pick random geometry and material
+                const geomIndex = Math.floor(Math.random() * geometries.length);
+                const matIndex = Math.floor(Math.random() * materials.length);
+                
+                const particle = new THREE.Mesh(geometries[geomIndex], materials[matIndex]);
+                
+                // Distribute particles in 3D space - wider distribution
+                particle.position.x = Math.random() * 30 - 15;
+                particle.position.y = Math.random() * 30 - 15;
+                particle.position.z = Math.random() * 20 - 15;
+                
+                // Randomize scale more dramatically
+                const scale = Math.random() * 1.5 + 0.2;
+                particle.scale.set(scale, scale, scale);
+                
+                // Store additional animation properties
+                particles.push({
+                    mesh: particle,
+                    rotationSpeed: Math.random() * 0.02,
+                    oscillationSpeed: Math.random() * 0.003,
+                    oscillationAmplitude: Math.random() * 0.2,
+                    oscillationOffset: Math.random() * Math.PI * 2,
+                    movementRadius: Math.random() * 0.1,
+                    initialY: particle.position.y
+                });
+                
+                scene.add(particle);
+            }
+            
+            // Add some moving spotlight effects
+            const spotLight1 = new THREE.PointLight(0x5D5CDE, 2, 50);
+            spotLight1.position.set(5, 5, 5);
+            scene.add(spotLight1);
+            
+            const spotLight2 = new THREE.PointLight(0xC850C0, 2, 50);
+            spotLight2.position.set(-5, -5, 5);
+            scene.add(spotLight2);
+            
+            // Add a subtle ambient light
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+            scene.add(ambientLight);
+            
+            camera.position.z = 10;
+            
+            function animate() {
+                requestAnimationFrame(animate);
+                
+                const time = Date.now() * 0.001;
+                
+                // Animate each particle individually
+                particles.forEach(particle => {
+                    // Rotation
+                    particle.mesh.rotation.x += particle.rotationSpeed;
+                    particle.mesh.rotation.y += particle.rotationSpeed * 0.8;
+                    
+                    // Oscillation on Y axis (floating effect)
+                    particle.mesh.position.y = particle.initialY + 
+                        Math.sin(time * particle.oscillationSpeed + particle.oscillationOffset) * 
+                        particle.oscillationAmplitude;
+                    
+                    // Circular motion on XZ plane
+                    particle.mesh.position.x += Math.sin(time * 0.2) * particle.movementRadius;
+                    particle.mesh.position.z += Math.cos(time * 0.2) * particle.movementRadius;
+                });
+                
+                // Animate lights
+                spotLight1.position.x = Math.sin(time * 0.3) * 10;
+                spotLight1.position.y = Math.cos(time * 0.2) * 10;
+                
+                spotLight2.position.x = Math.sin(time * 0.3 + Math.PI) * 10;
+                spotLight2.position.y = Math.cos(time * 0.2 + Math.PI) * 10;
+                
+                renderer.render(scene, camera);
+                
+                // Very subtle camera movement
+                camera.position.x = Math.sin(time * 0.05) * 0.5;
+                camera.position.y = Math.cos(time * 0.05) * 0.5;
+                camera.lookAt(scene.position);
+            }
+            
+            animate();
+            
+            // Make responsive
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+            
+            // Add mouse interaction
+            let mouseX = 0, mouseY = 0;
+            document.addEventListener('mousemove', (event) => {
+                mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+                mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+                
+                // Subtle camera movement based on mouse position
+                camera.position.x = mouseX * 0.3;
+                camera.position.y = mouseY * 0.3;
+                camera.lookAt(scene.position);
+            });
+        }
+
+        // Initialize the in-memory data store
+        class PromptStorage {
+            constructor() {
+                // In-memory storage since IndexedDB isn't available in the Canvas environment
+                this.prompts = [];
+                this.categories = [];
+                this.settings = new Map();
+                this.isVercelEnv = window.location.hostname.includes('vercel.app') || 
+                                 window.location.hostname.includes('.now.sh');
+                
+                // Add some sample data
+                this.initSampleData();
+                this.attemptLoadServerConfig();
+            }
+            
+            async attemptLoadServerConfig() {
+                // Only attempt to load server config in Vercel environment
+                if (this.isVercelEnv) {
+                    try {
+                        const response = await fetch('/api/config');
+                        if (response.ok) {
+                            const config = await response.json();
+                            
+                            if (config.isConfigured) {
+                                // Update UI to show Vercel environment is configured
+                                if (document.getElementById('vercel-env-settings') && 
+                                    document.getElementById('github-settings-container')) {
+                                    document.getElementById('vercel-env-settings').classList.remove('hidden');
+                                    document.getElementById('github-settings-container').classList.add('hidden');
+                                    
+                                    // Update "last synced" time if available
+                                    if (config.lastSynced && document.getElementById('last-sync-time')) {
+                                        document.getElementById('last-sync-time').textContent = 
+                                            new Date(config.lastSynced).toLocaleString();
+                                    }
+                                }
+                                
+                                // Set settings based on server config
+                                if (config.gistId) {
+                                    this.settings.set('gistId', config.gistId);
+                                }
+                                
+                                // Load data from Gist if available
+                                this.loadDataFromGist();
+                            }
+                        }
+                    } catch (error) {
+                        console.log('Server config not available, using local mode');
+                    }
+                }
+            }
+            
+            async loadDataFromGist() {
+                if (this.isVercelEnv) {
+                    try {
+                        const response = await fetch('/api/load');
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.success && data.data) {
+                                await this.importData(data.data);
+                                showNotification('success', '数据已同步', '已从GitHub Gist加载最新数据');
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Failed to load data from Gist');
+                    }
+                }
+            }
+            
+            initSampleData() {
+                // Sample categories
+                this.categories = [
+                    { id: 'category_1', name: '写作助手' },
+                    { id: 'category_2', name: '创意发想' },
+                    { id: 'category_3', name: '编程辅助' },
+                    { id: 'category_4', name: '数据分析' },
+                    { id: 'category_5', name: '内容营销' }
+                ];
+                
+                // Sample prompts
+                const now = new Date().toISOString();
+                const yesterday = new Date(Date.now() - 86400000).toISOString();
+                const twoDaysAgo = new Date(Date.now() - 172800000).toISOString();
+                
+                this.prompts = [
+                    {
+                        id: 'prompt_1',
+                        title: '创意写作助手',
+                        category: 'category_1',
+                        tags: ['创意', '写作', '故事'],
+                        content: '我需要你扮演一位创意写作助手。请基于以下主题或开头，创作一个引人入胜的短篇故事：[主题/开头]。故事应该包含生动的场景描述、有吸引力的角色以及合理的情节发展。',
+                        createdAt: twoDaysAgo,
+                        updatedAt: twoDaysAgo,
+                        lastUsed: yesterday,
+                        usageCount: 5
+                    },
+                    {
+                        id: 'prompt_2',
+                        title: '代码优化建议',
+                        category: 'category_3',
+                        tags: ['编程', '优化', '代码审查'],
+                        content: '请作为一位资深软件工程师，帮我审查并优化以下代码。指出任何潜在的性能问题、安全漏洞、设计模式改进，并提供更优的实现方式：\n\n```\n[在此粘贴你的代码]\n```',
+                        createdAt: yesterday,
+                        updatedAt: yesterday,
+                        lastUsed: now,
+                        usageCount: 3
+                    },
+                    {
+                        id: 'prompt_3',
+                        title: '头脑风暴会议主持',
+                        category: 'category_2',
+                        tags: ['创意', '头脑风暴', '想法生成'],
+                        content: '我需要你担任头脑风暴会议的主持人。我将提供会议的主题和目标，你需要引导思考过程，提出相关问题，激发创意，并帮助整理和拓展想法。主题是：[主题]。我们的目标是：[目标]。',
+                        createdAt: now,
+                        updatedAt: now,
+                        usageCount: 0
+                    },
+                    {
+                        id: 'prompt_4',
+                        title: '数据分析解读',
+                        category: 'category_4',
+                        tags: ['数据', '分析', '可视化'],
+                        content: '作为一名数据分析专家，请帮我分析以下数据集并提供洞见。请关注关键趋势、异常值和潜在的商业影响。如果可能，也请提供可视化建议。\n\n数据集：[在此粘贴数据或描述]\n\n我特别想了解：[具体问题或关注点]',
+                        createdAt: yesterday,
+                        updatedAt: yesterday,
+                        lastUsed: yesterday,
+                        usageCount: 2
+                    },
+                    {
+                        id: 'prompt_5',
+                        title: '内容营销策略',
+                        category: 'category_5',
+                        tags: ['营销', '内容', '策略'],
+                        content: '请为以下产品/服务制定一个详细的内容营销策略。包括内容类型、发布平台、目标受众、关键信息点、发布频率和成功衡量指标。\n\n产品/服务：[产品描述]\n目标市场：[目标市场]\n主要竞争对手：[竞争对手列表]',
+                        createdAt: twoDaysAgo,
+                        updatedAt: yesterday,
+                        lastUsed: now,
+                        usageCount: 4
+                    }
+                ];
+            }
+            
+            // Prompts CRUD
+            async getAllPrompts() {
+                return [...this.prompts];
+            }
+            
+            async getPromptById(id) {
+                return this.prompts.find(p => p.id === id);
+            }
+            
+            async addPrompt(prompt) {
+                this.prompts.push(prompt);
+                this.triggerStateChangeEvent();
+                return prompt.id;
+            }
+            
+            async updatePrompt(updatedPrompt) {
+                const index = this.prompts.findIndex(p => p.id === updatedPrompt.id);
+                if (index !== -1) {
+                    // Merge the existing prompt with the updated one to preserve fields that aren't being updated
+                    const existingPrompt = this.prompts[index];
+                    this.prompts[index] = {
+                        ...existingPrompt,
+                        ...updatedPrompt,
+                        updatedAt: new Date().toISOString()
+                    };
+                    this.triggerStateChangeEvent();
+                    return updatedPrompt.id;
+                }
+                throw new Error('Prompt not found');
+            }
+            
+            async deletePrompt(id) {
+                const index = this.prompts.findIndex(p => p.id === id);
+                if (index !== -1) {
+                    this.prompts.splice(index, 1);
+                    this.triggerStateChangeEvent();
+                    return true;
+                }
+                return false;
+            }
+            
+            async getPromptsByCategory(categoryId) {
+                return this.prompts.filter(p => p.category === categoryId);
+            }
+            
+            // Categories CRUD
+            async getAllCategories() {
+                return [...this.categories];
+            }
+            
+            async addCategory(category) {
+                this.categories.push(category);
+                this.triggerStateChangeEvent();
+                return category.id;
+            }
+            
+            async deleteCategory(id) {
+                const index = this.categories.findIndex(c => c.id === id);
+                if (index !== -1) {
+                    this.categories.splice(index, 1);
+                    this.triggerStateChangeEvent();
+                    return true;
+                }
+                return false;
+            }
+            
+            // Settings
+            async getSetting(id) {
+                if (this.settings.has(id)) {
+                    return { id, value: this.settings.get(id) };
+                }
+                return null;
+            }
+            
+            async saveSetting(setting) {
+                this.settings.set(setting.id, setting.value);
+                return true;
+            }
+            
+            // Import/Export
+            async exportData() {
+                return {
+                    prompts: this.prompts,
+                    categories: this.categories,
+                    settings: Object.fromEntries(
+                        Array.from(this.settings.entries()).map(([key, value]) => [key, value])
+                    ),
+                    exportDate: new Date().toISOString()
+                };
+            }
+            
+            async importData(data) {
+                if (!data || !data.prompts || !data.categories) {
+                    throw new Error('Invalid data format');
+                }
+                
+                // Import prompts
+                this.prompts = [...data.prompts];
+                
+                // Import categories
+                this.categories = [...data.categories];
+                
+                // Import settings
+                if (data.settings) {
+                    this.settings.clear();
+                    Object.entries(data.settings).forEach(([key, value]) => {
+                        if (value !== null) {
+                            this.settings.set(key, value);
+                        }
+                    });
+                }
+                
+                this.triggerStateChangeEvent();
+                return true;
+            }
+            
+            // Utility functions
+            async recordPromptUsage(id) {
+                const prompt = await this.getPromptById(id);
+                if (prompt) {
+                    prompt.usageCount = (prompt.usageCount || 0) + 1;
+                    prompt.lastUsed = new Date().toISOString();
+                    await this.updatePrompt(prompt);
+                    return prompt;
+                }
+                return null;
+            }
+            
+            async getRecentlyUsedPrompts(limit = 5) {
+                return this.prompts
+                    .filter(p => p.lastUsed)
+                    .sort((a, b) => new Date(b.lastUsed) - new Date(a.lastUsed))
+                    .slice(0, limit);
+            }
+            
+            async getTopCategories() {
+                const categoryCounts = {};
+                
+                this.prompts.forEach(prompt => {
+                    if (prompt.category) {
+                        categoryCounts[prompt.category] = (categoryCounts[prompt.category] || 0) + 1;
+                    }
+                });
+                
+                return Object.entries(categoryCounts)
+                    .map(([categoryId, count]) => {
+                        const category = this.categories.find(c => c.id === categoryId);
+                        return {
+                            category: category ? category.name : categoryId,
+                            count
+                        };
+                    })
+                    .sort((a, b) => b.count - a.count);
+            }
+            
+            async getWeeklyNewPrompts() {
+                const oneWeekAgo = new Date();
+                oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+                
+                return this.prompts.filter(p => new Date(p.createdAt) >= oneWeekAgo).length;
+            }
+            
+            async getWeeklyUsage() {
+                const oneWeekAgo = new Date();
+                oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+                
+                let weeklyUsage = 0;
+                
+                this.prompts.forEach(prompt => {
+                    if (prompt.lastUsed && new Date(prompt.lastUsed) >= oneWeekAgo) {
+                        weeklyUsage += 1;
+                    }
+                });
+                
+                return weeklyUsage;
+            }
+            
+            async getTotalUsage() {
+                return this.prompts.reduce((total, p) => total + (p.usageCount || 0), 0);
+            }
+            
+            async searchPrompts(query) {
+                if (!query) return this.getAllPrompts();
+                
+                const lowerQuery = query.toLowerCase();
+                
+                return this.prompts.filter(p => 
+                    p.title.toLowerCase().includes(lowerQuery) || 
+                    p.content.toLowerCase().includes(lowerQuery) ||
+                    (p.tags && p.tags.some(tag => tag.toLowerCase().includes(lowerQuery)))
+                );
+            }
+            
+            // Sync with GitHub
+            async syncWithGitHub() {
+                try {
+                    if (this.isVercelEnv) {
+                        // In Vercel environment, use the server API for GitHub operations
+                        const data = await this.exportData();
+                        const response = await fetch('/api/sync', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(data)
+                        });
+                        
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.error || '同步失败');
+                        }
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            // Update the last synced time in the UI
+                            if (document.getElementById('last-sync-time')) {
+                                document.getElementById('last-sync-time').textContent = 
+                                    new Date().toLocaleString();
+                            }
+                            
+                            // Update gist ID if needed
+                            if (result.gistId) {
+                                this.settings.set('gistId', result.gistId);
+                            }
+                            
+                            return { success: true, gistId: result.gistId };
+                        } else {
+                            throw new Error(result.error || '同步失败');
+                        }
+                    } else {
+                        // In Canvas or local environment, use client-side GitHub API
+                        const tokenSetting = await this.getSetting('githubToken');
+                        const gistSetting = await this.getSetting('gistId');
+                        
+                        const token = tokenSetting ? tokenSetting.value : null;
+                        let gistId = gistSetting ? gistSetting.value : null;
+                        
+                        if (!token) {
+                            throw new Error('请先在设置中配置 GitHub Token');
+                        }
+                        
+                        const data = await this.exportData();
+                        const dataStr = JSON.stringify(data, null, 2);
+                        
+                        let method, url, body;
+                        
+                        if (gistId) {
+                            // Update existing gist
+                            method = 'PATCH';
+                            url = `https://api.github.com/gists/${gistId}`;
+                            body = JSON.stringify({
+                                files: {
+                                    'promptnexus_data.json': {
+                                        content: dataStr
+                                    }
+                                }
+                            });
+                        } else {
+                            // Create new gist
+                            method = 'POST';
+                            url = 'https://api.github.com/gists';
+                            body = JSON.stringify({
+                                description: 'PromptNexus Data',
+                                public: false,
+                                files: {
+                                    'promptnexus_data.json': {
+                                        content: dataStr
+                                    }
+                                }
+                            });
+                        }
+                        
+                        const response = await fetch(url, {
+                            method,
+                            headers: {
+                                'Authorization': `token ${token}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body
+                        });
+                        
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.message || '同步失败');
+                        }
+                        
+                        const responseData = await response.json();
+                        
+                        if (!gistId && responseData.id) {
+                            // Save the new gist ID
+                            await this.saveSetting({ id: 'gistId', value: responseData.id });
+                            gistId = responseData.id;
+                        }
+                        
+                        return { success: true, gistId };
+                    }
+                } catch (error) {
+                    console.error('Error syncing with GitHub:', error);
+                    throw error;
+                }
+            }
+            
+            // Event when state changes
+            triggerStateChangeEvent() {
+                // Update counts in UI
+                this.updatePromptCount();
+            }
+            
+            // Update prompt count in UI
+            updatePromptCount() {
+                const countEl = document.getElementById('prompts-count');
+                if (countEl) {
+                    countEl.textContent = this.prompts.length;
+                }
+            }
+        }
+
+        // UI Controller
+        class UIController {
+            constructor(storage) {
+                this.storage = storage;
+                this.currentView = 'dashboard';
+                this.currentPromptId = null;
+                this.confirmCallback = null;
+                this.isGridView = true;
+                
+                this.initializeElements();
+                this.initializeEventListeners();
+                this.initialLoad();
+            }
+            
+            initializeElements() {
+                // Tabs
+                this.dashboardTab = document.getElementById('dashboard-tab');
+                this.promptsTab = document.getElementById('prompts-tab');
+                this.settingsTab = document.getElementById('settings-tab');
+                
+                // Views
+                this.dashboardView = document.getElementById('dashboard-view');
+                this.promptsView = document.getElementById('prompts-view');
+                this.settingsView = document.getElementById('settings-view');
+                
+                // Dashboard elements
+                this.totalPromptsCount = document.getElementById('total-prompts-count');
+                this.newPromptsCount = document.getElementById('new-prompts-count');
+                this.totalCategoriesCount = document.getElementById('total-categories-count');
+                this.topCategory = document.getElementById('top-category');
+                this.totalUsageCount = document.getElementById('total-usage-count');
+                this.weekUsageCount = document.getElementById('week-usage-count');
+                this.recentPromptsList = document.getElementById('recent-prompts-list');
+                
+                // Charts
+                this.categoriesChart = document.getElementById('categories-chart');
+                this.usageChart = document.getElementById('usage-chart');
+                
+                // Prompts view elements
+                this.searchInput = document.getElementById('search-input');
+                this.categoryFilter = document.getElementById('category-filter');
+                this.promptsGrid = document.getElementById('prompts-grid');
+                this.noPromptsMessage = document.getElementById('no-prompts-message');
+                this.gridViewBtn = document.getElementById('grid-view-btn');
+                this.listViewBtn = document.getElementById('list-view-btn');
+                
+                // Settings elements
+                this.categoriesList = document.getElementById('categories-list');
+                this.newCategoryInput = document.getElementById('new-category-input');
+                this.addCategoryBtn = document.getElementById('add-category-btn');
+                this.exportDataBtn = document.getElementById('export-data-btn');
+                this.importDataBtn = document.getElementById('import-data-btn');
+                this.importFileInput = document.getElementById('import-file-input');
+                this.githubTokenInput = document.getElementById('github-token-input');
+                this.gistIdInput = document.getElementById('gist-id-input');
+                this.saveGithubSettings = document.getElementById('save-github-settings');
+                this.resetAppBtn = document.getElementById('reset-app-btn');
+                this.noCategoriesMessage = document.getElementById('no-categories-message');
+                
+                // Modal elements
+                this.promptModal = document.getElementById('prompt-modal');
+                this.modalTitle = document.getElementById('modal-title');
+                this.promptForm = document.getElementById('prompt-form');
+                this.promptIdInput = document.getElementById('prompt-id');
+                this.promptTitleInput = document.getElementById('prompt-title');
+                this.promptCategoryInput = document.getElementById('prompt-category');
+                this.promptTagsInput = document.getElementById('prompt-tags');
+                this.promptContentInput = document.getElementById('prompt-content');
+                this.savePromptBtn = document.getElementById('save-prompt-btn');
+                this.cancelPromptBtn = document.getElementById('cancel-prompt-btn');
+                this.closeModalBtn = document.getElementById('close-modal-btn');
+                
+                // Confirmation modal
+                this.confirmModal = document.getElementById('confirm-modal');
+                this.confirmTitle = document.getElementById('confirm-title');
+                this.confirmMessage = document.getElementById('confirm-message');
+                this.confirmActionBtn = document.getElementById('confirm-action-btn');
+                this.cancelConfirmBtn = document.getElementById('cancel-confirm-btn');
+                
+                // Buttons
+                this.addPromptButton = document.getElementById('add-prompt-button');
+                this.syncButton = document.getElementById('sync-button');
+            }
+            
+            initializeEventListeners() {
+                // Tab navigation
+                this.dashboardTab.addEventListener('click', () => this.changeView('dashboard'));
+                this.promptsTab.addEventListener('click', () => this.changeView('prompts'));
+                this.settingsTab.addEventListener('click', () => this.changeView('settings'));
+                
+                // Prompt actions
+                this.addPromptButton.addEventListener('click', () => this.openPromptModal());
+                this.promptForm.addEventListener('submit', (e) => this.handlePromptSubmit(e));
+                this.closeModalBtn.addEventListener('click', () => this.closePromptModal());
+                this.cancelPromptBtn.addEventListener('click', () => this.closePromptModal());
+                
+                // Confirmation modal
+                this.confirmActionBtn.addEventListener('click', () => {
+                    if (this.confirmCallback) {
+                        this.confirmCallback();
+                    }
+                    this.closeConfirmModal();
+                });
+                this.cancelConfirmBtn.addEventListener('click', () => this.closeConfirmModal());
+                
+                // Prompts view actions
+                this.searchInput.addEventListener('input', () => this.searchPrompts());
+                this.categoryFilter.addEventListener('change', () => this.searchPrompts());
+                this.gridViewBtn.addEventListener('click', () => this.setViewMode(true));
+                this.listViewBtn.addEventListener('click', () => this.setViewMode(false));
+                
+                // Settings actions
+                this.addCategoryBtn.addEventListener('click', () => this.addCategory());
+                this.exportDataBtn.addEventListener('click', () => this.exportData());
+                this.importDataBtn.addEventListener('click', () => this.importFileInput.click());
+                this.importFileInput.addEventListener('change', (e) => this.handleImportFile(e));
+                this.saveGithubSettings.addEventListener('click', () => this.saveGitHubSettings());
+                this.resetAppBtn.addEventListener('click', () => this.confirmResetApp());
+                
+                // Sync button
+                this.syncButton.addEventListener('click', () => this.syncWithGitHub());
+            }
+            
+            async initialLoad() {
+                try {
+                    this.loadGitHubSettings();
+                    this.updateDashboard();
+                    this.loadCategories();
+                    this.loadPrompts();
+                    this.changeView('dashboard');
+                    initThreeJsScene();
+                    
+                    // Update prompt count in UI
+                    const prompts = await this.storage.getAllPrompts();
+                    const countEl = document.getElementById('prompts-count');
+                    if (countEl) {
+                        countEl.textContent = prompts.length;
+                    }
+                    
+                    // Add a notification about data persistence in Poe Canvas
+                    if (!this.storage.isVercelEnv) {
+                        setTimeout(() => {
+                            showNotification(
+                                'info',
+                                '数据存储提示',
+                                '在Poe Canvas环境中，数据仅存储在内存中。请使用导出功能保存您的数据，或部署到Vercel获得持久化存储。',
+                                10000
+                            );
+                        }, 1500);
+                    }
+                } catch (error) {
+                    console.error('Error in initialLoad:', error);
+                    showNotification('error', '加载错误', '初始化应用时发生错误: ' + error.message);
+                }
+            }
+            
+            changeView(view) {
+                this.currentView = view;
+                
+                // Hide all views
+                this.dashboardView.classList.add('hidden');
+                this.promptsView.classList.add('hidden');
+                this.settingsView.classList.add('hidden');
+                
+                // Remove active class from all tabs
+                this.dashboardTab.classList.remove('active');
+                this.promptsTab.classList.remove('active');
+                this.settingsTab.classList.remove('active');
+                
+                // Show the selected view and activate tab
+                if (view === 'dashboard') {
+                    this.dashboardView.classList.remove('hidden');
+                    this.dashboardTab.classList.add('active');
+                    this.updateDashboard();
+                } else if (view === 'prompts') {
+                    this.promptsView.classList.remove('hidden');
+                    this.promptsTab.classList.add('active');
+                    this.loadPrompts();
+                } else if (view === 'settings') {
+                    this.settingsView.classList.remove('hidden');
+                    this.settingsTab.classList.add('active');
+                    this.loadCategories();
+                }
+            }
+            
+            async updateDashboard() {
+                try {
+                    const prompts = await this.storage.getAllPrompts();
+                    const categories = await this.storage.getAllCategories();
+                    const weeklyNew = await this.storage.getWeeklyNewPrompts();
+                    const topCategories = await this.storage.getTopCategories();
+                    const totalUsage = await this.storage.getTotalUsage();
+                    const weeklyUsage = await this.storage.getWeeklyUsage();
+                    const recentPrompts = await this.storage.getRecentlyUsedPrompts(5);
+                    
+                    // Add animations to count updates
+                    this.animateCountUpdate(this.totalPromptsCount, prompts.length);
+                    this.animateCountUpdate(this.newPromptsCount, weeklyNew);
+                    this.animateCountUpdate(this.totalCategoriesCount, categories.length);
+                    this.topCategory.textContent = topCategories.length > 0 ? topCategories[0].category : '无分类';
+                    this.animateCountUpdate(this.totalUsageCount, totalUsage);
+                    this.animateCountUpdate(this.weekUsageCount, weeklyUsage);
+                    
+                    // Update recent prompts list
+                    this.recentPromptsList.innerHTML = '';
+                    if (recentPrompts.length === 0) {
+                        this.recentPromptsList.innerHTML = '<p class="text-center text-gray-500 dark:text-gray-400 py-4">暂无使用记录</p>';
+                    } else {
+                        recentPrompts.forEach((prompt, index) => {
+                            const lastUsedDate = new Date(prompt.lastUsed);
+                            const dateString = lastUsedDate.toLocaleString();
+                            
+                            const promptEl = document.createElement('div');
+                            promptEl.className = `flex justify-between items-center p-3 rounded-xl glass glass-light dark:glass-dark transform transition-all duration-300 hover:-translate-y-1 hover:shadow-lg animate-fade-in opacity-0`;
+                            promptEl.style.animationDelay = `${index * 0.1}s`;
+                            
+                            setTimeout(() => {
+                                promptEl.style.opacity = '1';
+                            }, 100 + index * 100);
+                            
+                            promptEl.innerHTML = `
+                                <div class="flex-1 min-w-0">
+                                    <h4 class="font-medium truncate">${prompt.title}</h4>
+                                    <p class="text-sm opacity-70 truncate mt-1">${prompt.content.substring(0, 60)}${prompt.content.length > 60 ? '...' : ''}</p>
+                                </div>
+                                <div class="flex flex-col items-end ml-4">
+                                    <span class="text-xs opacity-70">${dateString}</span>
+                                    <span class="text-xs mt-1 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 px-2 py-0.5 rounded-full">使用 ${prompt.usageCount || 0} 次</span>
+                                </div>
+                            `;
+                            
+                            promptEl.addEventListener('click', () => {
+                                this.viewPromptDetails(prompt.id);
+                            });
+                            
+                            this.recentPromptsList.appendChild(promptEl);
+                        });
+                    }
+                    
+                    // Update charts
+                    this.updateCategoriesChart(prompts, categories);
+                    this.updateUsageChart(prompts);
+                } catch (error) {
+                    console.error('Error updating dashboard:', error);
+                    showNotification('error', '更新仪表盘失败', error.message);
+                }
+            }
+            
+            // Animate count updates
+            animateCountUpdate(element, targetValue) {
+                if (!element) return;
+                
+                const duration = 1500; // milliseconds
+                const startValue = parseInt(element.textContent) || 0;
+                const startTime = performance.now();
+                
+                function updateCount(timestamp) {
+                    const elapsed = timestamp - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    
+                    // Use easeOutQuad for smoother animation
+                    const easeProgress = 1 - (1 - progress) * (1 - progress);
+                    
+                    const currentValue = Math.floor(startValue + (targetValue - startValue) * easeProgress);
+                    element.textContent = currentValue;
+                    
+                    if (progress < 1) {
+                        requestAnimationFrame(updateCount);
+                    }
+                }
+                
+                requestAnimationFrame(updateCount);
+            }
+            
+            updateCategoriesChart(prompts, categories) {
+                const ctx = this.categoriesChart.getContext('2d');
+                
+                // Count prompts by category
+                const categoryCounts = {};
+                let uncategorizedCount = 0;
+                
+                prompts.forEach(prompt => {
+                    if (prompt.category) {
+                        categoryCounts[prompt.category] = (categoryCounts[prompt.category] || 0) + 1;
+                    } else {
+                        uncategorizedCount++;
+                    }
+                });
+                
+                const categoryData = [];
+                
+                // Map category IDs to names and create data for chart
+                for (const [categoryId, count] of Object.entries(categoryCounts)) {
+                    const category = categories.find(c => c.id === categoryId);
+                    if (category) {
+                        categoryData.push({
+                            name: category.name,
+                            count: count
+                        });
+                    }
+                }
+                
+                // Sort by count (descending)
+                categoryData.sort((a, b) => b.count - a.count);
+                
+                const categoryNames = categoryData.map(item => item.name);
+                const categoryCounts2 = categoryData.map(item => item.count);
+                
+                if (uncategorizedCount > 0) {
+                    categoryNames.push('未分类');
+                    categoryCounts2.push(uncategorizedCount);
+                }
+                
+                if (categoryNames.length === 0) {
+                    categoryNames.push('无数据');
+                    categoryCounts2.push(1);
+                }
+                
+                // Generate gradient colors
+                const colors = categoryNames.map((_, i) => {
+                    const hue = (180 + i * 40) % 360;
+                    return `hsla(${hue}, 70%, 60%, 0.8)`;
+                });
+                
+                // Create chart
+                if (window.categoriesChartInstance) {
+                    window.categoriesChartInstance.destroy();
+                }
+                
+                const isDark = document.documentElement.classList.contains('dark');
+                
+                window.categoriesChartInstance = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: categoryNames,
+                        datasets: [{
+                            data: categoryCounts2,
+                            backgroundColor: colors,
+                            borderColor: isDark ? 'rgba(30, 30, 30, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                            borderWidth: 2,
+                            borderRadius: 4,
+                            hoverOffset: 15
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '65%',
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                                labels: {
+                                    color: isDark ? '#f0f0f0' : '#333',
+                                    font: {
+                                        size: 12
+                                    },
+                                    boxWidth: 15,
+                                    padding: 15
+                                }
+                            },
+                            tooltip: {
+                                displayColors: false,
+                                backgroundColor: isDark ? 'rgba(30, 30, 30, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                                titleColor: isDark ? '#fff' : '#333',
+                                bodyColor: isDark ? '#fff' : '#333',
+                                callbacks: {
+                                    label: function(context) {
+                                        return `${context.label}: ${context.raw} 个提示词`;
+                                    }
+                                }
+                            }
+                        },
+                        animation: {
+                            animateScale: true,
+                            animateRotate: true,
+                            duration: 2000,
+                            easing: 'easeOutQuart'
+                        }
+                    }
+                });
+            }
+            
+            updateUsageChart(prompts) {
+                const ctx = this.usageChart.getContext('2d');
+                
+                // Get last 7 days
+                const days = [];
+                const counts = [];
+                
+                for (let i = 6; i >= 0; i--) {
+                    const date = new Date();
+                    date.setDate(date.getDate() - i);
+                    date.setHours(0, 0, 0, 0);
+                    
+                    const nextDate = new Date(date);
+                    nextDate.setDate(nextDate.getDate() + 1);
+                    
+                    // Count usage on this day
+                    const dayUsage = prompts.filter(prompt => {
+                        if (!prompt.lastUsed) return false;
+                        const usedDate = new Date(prompt.lastUsed);
+                        return usedDate >= date && usedDate < nextDate;
+                    }).length;
+                    
+                    days.push(date.toLocaleDateString('zh-CN', { weekday: 'short' }));
+                    counts.push(dayUsage);
+                }
+                
+                // Create chart
+                if (window.usageChartInstance) {
+                    window.usageChartInstance.destroy();
+                }
+                
+                const isDark = document.documentElement.classList.contains('dark');
+                
+                // Create gradient background
+                const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                gradient.addColorStop(0, 'rgba(93, 92, 222, 0.3)');
+                gradient.addColorStop(1, 'rgba(93, 92, 222, 0.0)');
+                
+                window.usageChartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: days,
+                        datasets: [{
+                            label: '使用次数',
+                            data: counts,
+                            backgroundColor: gradient,
+                            borderColor: 'rgba(93, 92, 222, 1)',
+                            borderWidth: 3,
+                            tension: 0.4,
+                            fill: true,
+                            pointBackgroundColor: 'rgba(93, 92, 222, 1)',
+                            pointBorderColor: isDark ? '#181818' : '#FFFFFF',
+                            pointBorderWidth: 2,
+                            pointRadius: 6,
+                            pointHoverRadius: 8,
+                            pointHoverBackgroundColor: '#FF5C8D',
+                            pointHoverBorderColor: isDark ? '#181818' : '#FFFFFF'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+                                    drawBorder: false
+                                },
+                                ticks: {
+                                    color: isDark ? '#f0f0f0' : '#333',
+                                    stepSize: 1,
+                                    font: {
+                                        size: 12
+                                    },
+                                    padding: 10
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false,
+                                    drawBorder: false
+                                },
+                                ticks: {
+                                    color: isDark ? '#f0f0f0' : '#333',
+                                    font: {
+                                        size: 12
+                                    },
+                                    padding: 10
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                backgroundColor: isDark ? 'rgba(30, 30, 30, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                                titleColor: isDark ? '#fff' : '#333',
+                                bodyColor: isDark ? '#fff' : '#333',
+                                padding: 12,
+                                displayColors: false,
+                                callbacks: {
+                                    label: function(context) {
+                                        return `使用次数: ${context.raw}`;
+                                    }
+                                }
+                            }
+                        },
+                        animation: {
+                            duration: 2000,
+                            easing: 'easeOutQuart'
+                        },
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    }
+                });
+            }
+            
+            async loadCategories() {
+                try {
+                    const categories = await this.storage.getAllCategories();
+                    
+                    // Update category select in modal
+                    this.promptCategoryInput.innerHTML = '<option value="">无分类</option>';
+                    
+                    // Update category filter
+                    this.categoryFilter.innerHTML = '<option value="all">所有分类</option>';
+                    
+                    // Update categories list
+                    this.categoriesList.innerHTML = '';
+                    
+                    if (categories.length === 0) {
+                        this.noCategoriesMessage.classList.remove('hidden');
+                    } else {
+                        this.noCategoriesMessage.classList.add('hidden');
+                        
+                        categories.forEach((category, index) => {
+                            // Add to modal select
+                            const option = document.createElement('option');
+                            option.value = category.id;
+                            option.textContent = category.name;
+                            this.promptCategoryInput.appendChild(option);
+                            
+                            // Add to filter select
+                            const filterOption = document.createElement('option');
+                            filterOption.value = category.id;
+                            filterOption.textContent = category.name;
+                            this.categoryFilter.appendChild(filterOption);
+                            
+                            // Add to categories list in settings
+                            const categoryEl = document.createElement('div');
+                            categoryEl.className = 'flex justify-between items-center p-3 rounded-xl glass glass-light dark:glass-dark transform transition-all duration-300 hover:-translate-y-1';
+                            categoryEl.style.animationDelay = `${index * 0.05}s`;
+                            
+                            categoryEl.innerHTML = `
+                                <div class="flex items-center">
+                                    <div class="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300 flex items-center justify-center mr-3">
+                                        <i class="fas fa-folder"></i>
+                                    </div>
+                                    <span>${category.name}</span>
+                                </div>
+                                <button class="text-red-500 hover:text-red-700 dark:hover:text-red-300 w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-red-100 dark:hover:bg-red-900/30" data-category-id="${category.id}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            `;
+                            
+                            const deleteBtn = categoryEl.querySelector('button');
+                            deleteBtn.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                this.confirmDeleteCategory(category.id, category.name);
+                            });
+                            
+                            this.categoriesList.appendChild(categoryEl);
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error loading categories:', error);
+                    showNotification('error', '加载分类失败', error.message);
+                }
+            }
+            
+            async loadPrompts() {
+                try {
+                    const prompts = await this.searchPrompts();
+                    this.renderPrompts(prompts);
+                } catch (error) {
+                    console.error('Error loading prompts:', error);
+                    showNotification('error', '加载提示词失败', error.message);
+                }
+            }
+            
+            async searchPrompts() {
+                const query = this.searchInput.value.trim();
+                const categoryId = this.categoryFilter.value;
+                
+                let prompts = await this.storage.searchPrompts(query);
+                
+                if (categoryId && categoryId !== 'all') {
+                    prompts = prompts.filter(p => p.category === categoryId);
+                }
+                
+                this.renderPrompts(prompts);
+                return prompts;
+            }
+            
+            renderPrompts(prompts) {
+                this.promptsGrid.innerHTML = '';
+                
+                if (prompts.length === 0) {
+                    this.noPromptsMessage.classList.remove('hidden');
+                } else {
+                    this.noPromptsMessage.classList.add('hidden');
+                    
+                    prompts.forEach((prompt, index) => {
+                        let categoryName = '无分类';
+                        if (prompt.category) {
+                            const option = this.promptCategoryInput.querySelector(`option[value="${prompt.category}"]`);
+                            if (option) {
+                                categoryName = option.textContent;
+                            }
+                        }
+                        
+                        const promptEl = document.createElement('div');
+                        promptEl.className = `prompt-card glass glass-light dark:glass-dark rounded-2xl overflow-hidden ${this.isGridView ? '' : 'flex'} animate-fade-in opacity-0`;
+                        promptEl.style.animationDelay = `${index * 0.05}s`;
+                        
+                        setTimeout(() => {
+                            promptEl.style.opacity = '1';
+                        }, 50 + index * 50);
+                        
+                        if (this.isGridView) {
+                            promptEl.className += ' card-3d transform transition-all duration-300';
+                            promptEl.innerHTML = `
+                                <div class="p-5 relative backdrop-blur-sm">
+                                    <div class="flex justify-between items-start mb-3">
+                                        <h3 class="font-bold text-lg truncate flex-1">${prompt.title}</h3>
+                                        <div class="flex space-x-2 ml-2">
+                                            <button class="edit-btn w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 transform hover:scale-110 tooltip" data-tooltip="编辑" data-prompt-id="${prompt.id}">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="delete-btn w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 transform hover:scale-110 tooltip" data-tooltip="删除" data-prompt-id="${prompt.id}">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <span class="text-sm px-2 py-1 rounded-full bg-gradient-to-r from-purple-400 to-blue-400 dark:from-purple-600 dark:to-blue-600 text-white dark:text-white shadow-sm">
+                                            ${categoryName}
+                                        </span>
+                                    </div>
+                                    <p class="text-sm opacity-70 mb-3 line-clamp-3 h-14 overflow-hidden">
+                                        ${prompt.content.substring(0, 120)}${prompt.content.length > 120 ? '...' : ''}
+                                    </p>
+                                    <div class="flex flex-wrap mb-3">
+                                        ${prompt.tags ? prompt.tags.map(tag => `<span class="prompt-tag transform transition-all duration-300 hover:scale-105 hover:shadow-md">${tag}</span>`).join('') : ''}
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <div class="text-xs opacity-70">
+                                            ${prompt.lastUsed ? `上次使用: ${new Date(prompt.lastUsed).toLocaleDateString()}` : '未使用'}
+                                        </div>
+                                        <button class="use-btn px-4 py-1.5 rounded-lg btn-primary text-sm shadow-lg transition-all duration-300 transform hover:translate-y-[-2px] hover:shadow-xl tooltip" data-tooltip="复制并使用" data-prompt-id="${prompt.id}">
+                                            <i class="fas fa-bolt mr-1"></i>
+                                            使用
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                        } else {
+                            // List view
+                            promptEl.innerHTML = `
+                                <div class="p-4 flex-1">
+                                    <div class="flex justify-between items-start">
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center">
+                                                <h3 class="font-bold text-lg truncate">${prompt.title}</h3>
+                                                <span class="ml-2 text-xs px-2 py-1 rounded-full bg-gradient-to-r from-purple-400 to-blue-400 dark:from-purple-600 dark:to-blue-600 text-white dark:text-white">
+                                                    ${categoryName}
+                                                </span>
+                                            </div>
+                                            <p class="text-sm opacity-70 mt-1 line-clamp-1">${prompt.content.substring(0, 80)}${prompt.content.length > 80 ? '...' : ''}</p>
+                                            <div class="flex flex-wrap mt-2">
+                                                ${prompt.tags ? prompt.tags.map(tag => `<span class="prompt-tag transform transition-all duration-300 hover:scale-105 hover:shadow-md">${tag}</span>`).join('') : ''}
+                                            </div>
+                                            <div class="text-xs opacity-70 mt-2 flex items-center">
+                                                <span>${prompt.lastUsed ? `上次使用: ${new Date(prompt.lastUsed).toLocaleDateString()}` : '未使用'}</span>
+                                                <span class="ml-3">使用次数: ${prompt.usageCount || 0}</span>
+                                            </div>
+                                        </div>
+                                        <div class="flex space-x-2 ml-4">
+                                            <button class="edit-btn w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 transform hover:scale-110 tooltip" data-tooltip="编辑" data-prompt-id="${prompt.id}">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="delete-btn w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 transform hover:scale-110 tooltip" data-tooltip="删除" data-prompt-id="${prompt.id}">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                            <button class="use-btn w-8 h-8 rounded-full flex items-center justify-center btn-primary shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-110 tooltip" data-tooltip="复制并使用" data-prompt-id="${prompt.id}">
+                                                <i class="fas fa-bolt"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        
+                        this.promptsGrid.appendChild(promptEl);
+                        
+                        // Add event listeners
+                        const editBtn = promptEl.querySelector('.edit-btn');
+                        const deleteBtn = promptEl.querySelector('.delete-btn');
+                        const useBtn = promptEl.querySelector('.use-btn');
+                        
+                        editBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            this.editPrompt(prompt.id);
+                        });
+                        
+                        deleteBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            this.confirmDeletePrompt(prompt.id, prompt.title);
+                        });
+                        
+                        useBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            this.usePrompt(prompt.id);
+                        });
+                        
+                        if (this.isGridView) {
+                            promptEl.addEventListener('click', (e) => {
+                                if (!e.target.closest('button')) {
+                                    this.viewPromptDetails(prompt.id);
+                                }
+                            });
+                        }
+                    });
+                }
+            }
+            
+            setViewMode(isGrid) {
+                this.isGridView = isGrid;
+                
+                if (isGrid) {
+                    this.gridViewBtn.classList.add('text-primary');
+                    this.gridViewBtn.classList.remove('text-gray-400');
+                    this.listViewBtn.classList.add('text-gray-400');
+                    this.listViewBtn.classList.remove('text-primary');
+                    this.promptsGrid.classList.remove('grid-cols-1');
+                    this.promptsGrid.classList.add('md:grid-cols-2', 'lg:grid-cols-3');
+                } else {
+                    this.listViewBtn.classList.add('text-primary');
+                    this.listViewBtn.classList.remove('text-gray-400');
+                    this.gridViewBtn.classList.add('text-gray-400');
+                    this.gridViewBtn.classList.remove('text-primary');
+                    this.promptsGrid.classList.add('grid-cols-1');
+                    this.promptsGrid.classList.remove('md:grid-cols-2', 'lg:grid-cols-3');
+                }
+                
+                this.loadPrompts();
+            }
+            
+            async viewPromptDetails(id) {
+                try {
+                    const prompt = await this.storage.getPromptById(id);
+                    if (prompt) {
+                        this.promptIdInput.value = prompt.id;
+                        this.promptTitleInput.value = prompt.title;
+                        this.promptCategoryInput.value = prompt.category || '';
+                        this.promptTagsInput.value = prompt.tags ? prompt.tags.join(', ') : '';
+                        this.promptContentInput.value = prompt.content;
+                        
+                        this.modalTitle.innerHTML = `查看提示词 <span class="gradient-text">${prompt.title}</span>`;
+                        this.openPromptModal(true);
+                    }
+                } catch (error) {
+                    console.error('Error viewing prompt details:', error);
+                    showNotification('error', '查看提示词失败', error.message);
+                }
+            }
+            
+            openPromptModal(isViewMode = false) {
+                if (!isViewMode) {
+                    this.promptIdInput.value = '';
+                    this.promptTitleInput.value = '';
+                    this.promptCategoryInput.value = '';
+                    this.promptTagsInput.value = '';
+                    this.promptContentInput.value = '';
+                    this.modalTitle.innerHTML = '创建新提示词';
+                }
+                
+                this.promptModal.classList.remove('hidden');
+                this.promptTitleInput.focus();
+            }
+            
+            closePromptModal() {
+                this.promptModal.classList.add('hidden');
+                this.currentPromptId = null;
+            }
+            
+            async handlePromptSubmit(e) {
+                e.preventDefault();
+                
+                const id = this.promptIdInput.value || `prompt_${Date.now()}`;
+                const title = this.promptTitleInput.value.trim();
+                const category = this.promptCategoryInput.value;
+                const tagsText = this.promptTagsInput.value.trim();
+                const tags = tagsText ? tagsText.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
+                const content = this.promptContentInput.value.trim();
+                
+                if (!title || !content) {
+                    return;
+                }
+                
+                try {
+                    const now = new Date().toISOString();
+                    const prompt = {
+                        id,
+                        title,
+                        category,
+                        tags,
+                        content,
+                        createdAt: this.promptIdInput.value ? undefined : now,
+                        updatedAt: now,
+                        usageCount: this.promptIdInput.value ? undefined : 0
+                    };
+                    
+                    if (this.promptIdInput.value) {
+                        await this.storage.updatePrompt(prompt);
+                        showNotification('success', '提示词已更新', `"${title}" 已成功更新`);
+                    } else {
+                        await this.storage.addPrompt(prompt);
+                        showNotification('success', '提示词已创建', `"${title}" 已成功添加到您的提示词库`);
+                    }
+                    
+                    this.closePromptModal();
+                    this.updateDashboard();
+                    this.loadPrompts();
+                } catch (error) {
+                    console.error('Error saving prompt:', error);
+                    showNotification('error', '保存提示词失败', error.message);
+                }
+            }
+            
+            async editPrompt(id) {
+                this.currentPromptId = id;
+                try {
+                    const prompt = await this.storage.getPromptById(id);
+                    if (prompt) {
+                        this.promptIdInput.value = prompt.id;
+                        this.promptTitleInput.value = prompt.title;
+                        this.promptCategoryInput.value = prompt.category || '';
+                        this.promptTagsInput.value = prompt.tags ? prompt.tags.join(', ') : '';
+                        this.promptContentInput.value = prompt.content;
+                        
+                        this.modalTitle.innerHTML = `编辑提示词 <span class="gradient-text">${prompt.title}</span>`;
+                        this.openPromptModal();
+                    }
+                } catch (error) {
+                    console.error('Error editing prompt:', error);
+                    showNotification('error', '编辑提示词失败', error.message);
+                }
+            }
+            
+            confirmDeletePrompt(id, title) {
+                this.confirmTitle.textContent = '删除提示词';
+                this.confirmMessage.textContent = `您确定要删除 "${title}" 吗？此操作不可撤销。`;
+                this.confirmActionBtn.classList.add('bg-red-500');
+                this.confirmActionBtn.classList.remove('bg-blue-500');
+                this.confirmActionBtn.innerHTML = '<i class="fas fa-trash mr-2"></i>删除';
+                
+                this.confirmCallback = async () => {
+                    try {
+                        await this.storage.deletePrompt(id);
+                        this.updateDashboard();
+                        this.loadPrompts();
+                        showNotification('success', '提示词已删除', `"${title}" 已成功删除`);
+                    } catch (error) {
+                        console.error('Error deleting prompt:', error);
+                        showNotification('error', '删除提示词失败', error.message);
+                    }
+                };
+                
+                this.openConfirmModal();
+            }
+            
+            async usePrompt(id) {
+                try {
+                    const prompt = await this.storage.recordPromptUsage(id);
+                    if (prompt) {
+                        // Copy to clipboard
+                        navigator.clipboard.writeText(prompt.content).then(() => {
+                            showNotification('success', '提示词已复制', '提示词内容已复制到剪贴板', 3000);
+                        }).catch(err => {
+                            console.error('无法复制到剪贴板:', err);
+                            // Show copied text in a modal instead
+                            this.confirmTitle.textContent = prompt.title;
+                            this.confirmMessage.innerHTML = `<div class="overflow-y-auto max-h-60 border border-gray-200 dark:border-gray-700 p-3 rounded bg-gray-50 dark:bg-gray-800 mb-4">${prompt.content}</div><p>请手动复制上面的提示词</p>`;
+                            this.confirmActionBtn.classList.remove('bg-red-500');
+                            this.confirmActionBtn.classList.add('bg-blue-500');
+                            this.confirmActionBtn.innerHTML = '<i class="fas fa-check mr-2"></i>关闭';
+                            
+                            this.confirmCallback = () => {};
+                            this.openConfirmModal();
+                        });
+                        
+                        this.updateDashboard();
+                    }
+                } catch (error) {
+                    console.error('Error using prompt:', error);
+                    showNotification('error', '使用提示词失败', error.message);
+                }
+            }
+            
+            async addCategory() {
+                const name = this.newCategoryInput.value.trim();
+                if (!name) return;
+                
+                try {
+                    const id = `category_${Date.now()}`;
+                    await this.storage.addCategory({ id, name });
+                    this.newCategoryInput.value = '';
+                    this.loadCategories();
+                    showNotification('success', '分类已创建', `"${name}" 分类已成功创建`);
+                } catch (error) {
+                    console.error('Error adding category:', error);
+                    showNotification('error', '添加分类失败', error.message);
+                }
+            }
+            
+            confirmDeleteCategory(id, name) {
+                this.confirmTitle.textContent = '删除分类';
+                this.confirmMessage.textContent = `您确定要删除分类 "${name}" 吗？关联的提示词将变为无分类。`;
+                this.confirmActionBtn.classList.add('bg-red-500');
+                this.confirmActionBtn.classList.remove('bg-blue-500');
+                this.confirmActionBtn.innerHTML = '<i class="fas fa-trash mr-2"></i>删除';
+                
+                this.confirmCallback = async () => {
+                    try {
+                        await this.storage.deleteCategory(id);
+                        
+                        // Update prompts that use this category
+                        const prompts = await this.storage.getAllPrompts();
+                        for (const prompt of prompts) {
+                            if (prompt.category === id) {
+                                prompt.category = '';
+                                await this.storage.updatePrompt(prompt);
+                            }
+                        }
+                        
+                        this.loadCategories();
+                        this.updateDashboard();
+                        showNotification('success', '分类已删除', `"${name}" 分类已成功删除`);
+                    } catch (error) {
+                        console.error('Error deleting category:', error);
+                        showNotification('error', '删除分类失败', error.message);
+                    }
+                };
+                
+                this.openConfirmModal();
+            }
+            
+            async exportData() {
+                try {
+                    const data = await this.storage.exportData();
+                    const dataStr = JSON.stringify(data, null, 2);
+                    const blob = new Blob([dataStr], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `promptnexus_export_${new Date().toISOString().split('T')[0]}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    
+                    showNotification('success', '数据已导出', '您的提示词数据已成功导出为JSON文件');
+                } catch (error) {
+                    console.error('Error exporting data:', error);
+                    showNotification('error', '导出数据失败', error.message);
+                }
+            }
+            
+            async handleImportFile(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                try {
+                    const reader = new FileReader();
+                    reader.onload = async (event) => {
+                        try {
+                            const data = JSON.parse(event.target.result);
+                            this.confirmTitle.textContent = '导入数据';
+                            this.confirmMessage.textContent = `您确定要导入此数据吗？这将覆盖当前所有数据。`;
+                            this.confirmActionBtn.classList.remove('bg-red-500');
+                            this.confirmActionBtn.classList.add('bg-blue-500');
+                            this.confirmActionBtn.innerHTML = '<i class="fas fa-file-import mr-2"></i>导入';
+                            
+                            this.confirmCallback = async () => {
+                                try {
+                                    await this.storage.importData(data);
+                                    this.updateDashboard();
+                                    this.loadCategories();
+                                    this.loadPrompts();
+                                    this.loadGitHubSettings();
+                                    showNotification('success', '数据已导入', '提示词数据已成功导入');
+                                } catch (error) {
+                                    console.error('Error importing data:', error);
+                                    showNotification('error', '导入失败', error.message);
+                                }
+                            };
+                            
+                            this.openConfirmModal();
+                        } catch (error) {
+                            console.error('Error parsing imported data:', error);
+                            showNotification('error', '导入失败', '无效的数据格式');
+                        }
+                    };
+                    reader.readAsText(file);
+                } catch (error) {
+                    console.error('Error importing data:', error);
+                    showNotification('error', '导入失败', error.message);
+                }
+                
+                // Reset file input
+                e.target.value = '';
+            }
+            
+            async loadGitHubSettings() {
+                try {
+                    const githubToken = await this.storage.getSetting('githubToken');
+                    const gistId = await this.storage.getSetting('gistId');
+                    
+                    if (githubToken) {
+                        this.githubTokenInput.value = githubToken.value;
+                    } else {
+                        this.githubTokenInput.value = '';
+                    }
+                    
+                    if (gistId) {
+                        this.gistIdInput.value = gistId.value;
+                    } else {
+                        this.gistIdInput.value = '';
+                    }
+                } catch (error) {
+                    console.error('Error loading GitHub settings:', error);
+                }
+            }
+            
+            async saveGitHubSettings() {
+                const token = this.githubTokenInput.value.trim();
+                const gistId = this.gistIdInput.value.trim();
+                
+                try {
+                    if (token) {
+                        await this.storage.saveSetting({ id: 'githubToken', value: token });
+                    }
+                    
+                    if (gistId) {
+                        await this.storage.saveSetting({ id: 'gistId', value: gistId });
+                    }
+                    
+                    showNotification('success', '设置已保存', 'GitHub同步设置已成功保存');
+                } catch (error) {
+                    console.error('Error saving GitHub settings:', error);
+                    showNotification('error', '保存失败', error.message);
+                }
+            }
+            
+            async syncWithGitHub() {
+                try {
+                    // Show loading state
+                    this.syncButton.innerHTML = '<div class="loading-spinner mr-2"></div><span>同步中...</span>';
+                    this.syncButton.disabled = true;
+                    
+                    const result = await this.storage.syncWithGitHub();
+                    
+                    if (result && result.success) {
+                        showNotification('success', '同步成功', '您的提示词数据已同步到GitHub Gist');
+                        
+                        // Update Gist ID input if needed
+                        if (result.gistId && this.gistIdInput) {
+                            this.gistIdInput.value = result.gistId;
+                        }
+                    } else {
+                        throw new Error('同步失败');
+                    }
+                } catch (error) {
+                    console.error('Error syncing with GitHub:', error);
+                    
+                    if (error.message.includes('Token') || error.message.includes('token')) {
+                        showNotification('error', '同步失败', '请检查您的GitHub Token是否正确设置');
+                        // Switch to settings tab
+                        this.changeView('settings');
+                    } else {
+                        showNotification('error', '同步失败', error.message);
+                    }
+                } finally {
+                    // Restore sync button
+                    this.syncButton.innerHTML = '<i class="fas fa-sync-alt mr-2"></i><span>同步</span>';
+                    this.syncButton.disabled = false;
+                }
+            }
+            
+            confirmResetApp() {
+                this.confirmTitle.textContent = '重置应用';
+                this.confirmMessage.textContent = '您确定要重置应用吗？这将清除所有数据，此操作不可撤销！';
+                this.confirmActionBtn.classList.add('bg-red-500');
+                this.confirmActionBtn.classList.remove('bg-blue-500');
+                this.confirmActionBtn.innerHTML = '<i class="fas fa-trash-alt mr-2"></i>重置';
+                
+                this.confirmCallback = async () => {
+                    try {
+                        // 重新初始化存储
+                        this.storage.prompts = [];
+                        this.storage.categories = [];
+                        this.storage.settings = new Map();
+                        this.storage.initSampleData();
+                        
+                        // 刷新UI
+                        this.updateDashboard();
+                        this.loadCategories();
+                        this.loadPrompts();
+                        
+                        showNotification('success', '应用已重置', '所有数据已恢复到初始状态');
+                    } catch (error) {
+                        console.error('Error resetting app:', error);
+                        showNotification('error', '重置失败', error.message);
+                    }
+                };
+                
+                this.openConfirmModal();
+            }
+            
+            openConfirmModal() {
+                this.confirmModal.classList.remove('hidden');
+            }
+            
+            closeConfirmModal() {
+                this.confirmModal.classList.add('hidden');
+                this.confirmCallback = null;
+            }
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', () => {
+            const storage = new PromptStorage();
+            const ui = new UIController(storage);
+        });
+    </script>
+
+
+</body></html>
