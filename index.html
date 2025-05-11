@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PromptNexus - 高级提示词管理工具</title>
+    <!-- 
+      注意: 在此演示应用中使用cdn.tailwindcss.com是为了方便开发。
+      在实际生产环境中，应该按照以下方式使用Tailwind CSS:
+      1. 安装为PostCSS插件: npm install tailwindcss
+      2. 创建tailwind.config.js配置文件
+      3. 使用Tailwind CLI构建生产版本CSS文件
+      详情请参考: https://tailwindcss.com/docs/installation
+    -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- 3D背景容器 -->
+    <div id="scene-container"></div>
+
+    <!-- 主容器 -->
+    <div class="container mx-auto px-4 py-4 max-w-6xl">
+        <!-- 头部 -->
+        <header class="flex justify-between items-center mb-8">
+            <div class="flex items-center">
+                <h1 class="text-3xl font-bold gradient-text">PromptNexus</h1>
+                <span class="text-xs ml-2 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-100 px-2 py-1 rounded-full">v1.1.0</span>
+            </div>
+            <div class="flex items-center space-x-3">
+                <!-- 全局搜索框 -->
+                <div class="search-container">
+                    <input type="text" id="global-search-input" class="search-input w-64" placeholder="全局搜索提示词...">
+                    <div class="search-icon">
+                        <i class="fas fa-search"></i>
+                    </div>
+                </div>
+                <!-- 添加提示词按钮 -->
+                <button id="header-add-prompt-btn" class="btn-primary rounded-xl px-4 py-2 flex items-center">
+                    <i class="fas fa-plus mr-2"></i>
+                    <span>添加提示词</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- 主导航 -->
+        <nav class="border-b border-gray-200 dark:border-gray-700 mb-8">
+            <div class="flex space-x-1">
+                <button id="dashboard-tab" class="active navlink py-2 px-4 font-medium text-gray-600 dark:text-gray-300 hover:text-primary flex items-center">
+                    <i class="fas fa-chart-pie mr-2"></i>
+                    仪表盘
+                </button>
+                <button id="prompts-tab" class="navlink py-2 px-4 font-medium text-gray-600 dark:text-gray-300 hover:text-primary flex items-center">
+                    <i class="fas fa-lightbulb mr-2"></i>
+                    提示词
+                </button>
+                <button id="settings-tab" class="navlink py-2 px-4 font-medium text-gray-600 dark:text-gray-300 hover:text-primary flex items-center">
+                    <i class="fas fa-cog mr-2"></i>
+                    设置
+                </button>
+            </div>
+        </nav>
+
+        <!-- 视图容器 -->
+        <main class="min-h-screen">
+            <!-- 仪表盘视图 -->
+            <div id="dashboard-view" class="view-container">
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold mb-6">概览</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <!-- 统计卡 - 总提示词数 -->
+                        <div class="glass-card p-6 stat-card hover-3d cursor-pointer">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <h3 class="text-lg font-medium text-gray-500 dark:text-gray-400">总提示词数</h3>
+                                    <p class="text-3xl font-bold mt-2" id="total-prompts-count">0</p>
+                                </div>
+                                <div class="text-3xl text-purple-500 opacity-80">
+                                    <i class="fas fa-lightbulb"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 统计卡 - 总分类数 -->
+                        <div class="glass-card p-6 stat-card hover-3d cursor-pointer">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <h3 class="text-lg font-medium text-gray-500 dark:text-gray-400">总分类数</h3>
+                                    <p class="text-3xl font-bold mt-2" id="total-categories-count">0</p>
+                                </div>
+                                <div class="text-3xl text-blue-500 opacity-80">
+                                    <i class="fas fa-folder"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 统计卡 - 使用次数 -->
+                        <div class="glass-card p-6 stat-card hover-3d cursor-pointer">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <h3 class="text-lg font-medium text-gray-500 dark:text-gray-400">总使用次数</h3>
+                                    <p class="text-3xl font-bold mt-2" id="total-usage-count">0</p>
+                                </div>
+                                <div class="text-3xl text-green-500 opacity-80">
+                                    <i class="fas fa-clipboard-check"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                    <!-- 分类分布图表 -->
+                    <div class="glass-card p-6 h-80 cursor-pointer hover-3d">
+                        <h3 class="text-xl font-bold mb-4">提示词分类分布</h3>
+                        <div class="h-64">
+                            <canvas id="categories-chart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- 使用情况图表 -->
+                    <div class="glass-card p-6 h-80 cursor-pointer hover-3d">
+                        <h3 class="text-xl font-bold mb-4">近7天使用情况</h3>
+                        <div class="h-64">
+                            <canvas id="usage-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 最近使用的提示词 -->
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold mb-6">最近使用的提示词</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="recent-prompts-list">
+                        <!-- 最近使用的提示词列表将通过JavaScript动态生成 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 提示词视图 -->
+            <div id="prompts-view" class="view-container hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">提示词库</h2>
+                    <button id="add-prompt-btn" class="btn-primary rounded-xl px-4 py-2 flex items-center">
+                        <i class="fas fa-plus mr-2"></i>
+                        添加提示词
+                    </button>
+                </div>
+                
+                <!-- 搜索框 -->
+                <div class="search-container mb-6">
+                    <input type="text" id="search-input" class="search-input" placeholder="搜索提示词...">
+                    <div class="search-icon">
+                        <i class="fas fa-search"></i>
+                    </div>
+                </div>
+                
+                <!-- 无搜索结果提示 -->
+                <div id="no-search-results" class="no-data hidden">
+                    <div class="no-data-icon">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">无匹配结果</h3>
+                    <p>没有找到匹配的提示词，请尝试其他搜索词。</p>
+                </div>
+                
+                <!-- 筛选和排序 -->
+                <div class="flex flex-wrap justify-between items-center mb-6">
+                    <div class="flex flex-wrap items-center space-x-4 mb-4 sm:mb-0">
+                        <div class="flex items-center">
+                            <label class="mr-2 text-sm">分类:</label>
+                            <select id="category-filter" class="glass glass-light dark:glass-dark rounded-xl px-3 py-1 text-sm">
+                                <option value="">全部</option>
+                                <!-- 分类选项将通过JavaScript动态添加 -->
+                            </select>
+                        </div>
+                        <div class="flex items-center">
+                            <label class="mr-2 text-sm">排序:</label>
+                            <select id="sort-order" class="glass glass-light dark:glass-dark rounded-xl px-3 py-1 text-sm">
+                                <option value="lastModified">最近更新</option>
+                                <option value="lastUsed">最近使用</option>
+                                <option value="title">标题</option>
+                                <option value="usageCount">使用次数</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <button id="view-toggle" class="glass glass-light dark:glass-dark rounded-xl px-3 py-1 text-sm flex items-center">
+                            <i class="fas fa-th-list mr-2"></i>
+                            列表视图
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 提示词列表 -->
+                <div id="prompts-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- 提示词卡片将通过JavaScript动态添加 -->
+                </div>
+                
+                <!-- 无提示词提示 -->
+                <div id="no-prompts" class="no-data hidden">
+                    <div class="no-data-icon">
+                        <i class="fas fa-lightbulb"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">还没有提示词</h3>
+                    <p class="mb-4">点击"添加提示词"按钮创建您的第一个提示词。</p>
+                    <button id="add-first-prompt-btn" class="btn-primary rounded-xl px-4 py-2 flex items-center mx-auto">
+                        <i class="fas fa-plus mr-2"></i>
+                        添加提示词
+                    </button>
+                </div>
+            </div>
+
+            <!-- 设置视图 -->
+            <div id="settings-view" class="view-container hidden">
+                <h2 class="text-2xl font-bold mb-6">设置</h2>
+                
+                <div class="grid grid-cols-1 gap-6">
+                    <!-- 安全设置 -->
+                    <div class="glass-card p-6">
+                        <h3 class="text-xl font-bold mb-4">安全设置</h3>
+                        
+                        <div class="form-group mb-4">
+                            <label for="require-password" class="flex items-center cursor-pointer">
+                                <input type="checkbox" id="require-password" class="form-checkbox mr-2">
+                                <span>添加提示词需要密码验证</span>
+                            </label>
+                        </div>
+                        
+                        <div class="form-group mb-4">
+                            <label for="admin-password-setting" class="form-label">管理员密码</label>
+                            <input type="password" id="admin-password-setting" class="form-input">
+                            <p class="text-sm text-gray-500 mt-1">留空表示不修改当前密码</p>
+                        </div>
+                        
+                        <button id="save-security-settings" class="btn btn-primary">保存安全设置</button>
+                    </div>
+                    
+                    <!-- 分类管理 -->
+                    <div class="glass-card p-6">
+                        <h3 class="text-xl font-bold mb-4">分类管理</h3>
+                        
+                        <div class="mb-4">
+                            <div class="flex items-center space-x-2">
+                                <input type="text" id="new-category" class="glass glass-light dark:glass-dark rounded-xl px-4 py-2 flex-1 outline-none" placeholder="新分类名称...">
+                                <button id="add-category-btn" class="btn-primary rounded-xl px-4 py-2">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div id="categories-list" class="space-y-2">
+                            <!-- 分类列表将通过JavaScript动态添加 -->
+                        </div>
+                        
+                        <div id="no-categories" class="no-data py-4 hidden">
+                            <p class="text-center">还没有分类</p>
+                        </div>
+                    </div>
+                    
+                    <!-- GitHub同步设置 -->
+                    <div class="glass-card p-6 deploy-sync-section">
+                        <h3 class="text-xl font-bold mb-4">GitHub同步</h3>
+                        
+                        <div id="github-settings-container">
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium mb-2">GitHub Token</label>
+                                <input type="password" id="github-token" class="glass glass-light dark:glass-dark rounded-xl px-4 py-2 w-full outline-none" placeholder="输入您的GitHub个人访问令牌...">
+                                <p class="text-xs mt-1 text-gray-500">需要gist权限。<a href="https://github.com/settings/tokens/new" target="_blank" class="text-primary">创建令牌</a></p>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium mb-2">Gist ID (可选)</label>
+                                <input type="text" id="gist-id" class="glass glass-light dark:glass-dark rounded-xl px-4 py-2 w-full outline-none" placeholder="输入现有Gist ID...">
+                                <p class="text-xs mt-1 text-gray-500">如果留空，将创建新的Gist</p>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <div class="flex items-center">
+                                    <input type="checkbox" id="github-auto-load" class="mr-2" checked>
+                                    <label for="github-auto-load" class="text-sm font-medium">自动加载GitHub数据</label>
+                                </div>
+                                <p class="text-xs mt-1 text-gray-500">在应用启动时自动从GitHub Gist加载最新数据</p>
+                            </div>
+                            
+                            <button id="save-github-settings" class="btn-primary rounded-xl px-4 py-2 flex items-center">
+                                <i class="fas fa-save mr-2"></i>
+                                保存设置
+                            </button>
+                        </div>
+                        
+                        <div id="vercel-env-settings" class="hidden">
+                            <p class="mb-4">当部署在Vercel上时，数据存储在浏览器本地存储中。每个设备都有独立的数据副本。</p>
+                        </div>
+                    </div>
+                    
+                    <!-- 数据管理 -->
+                    <div class="glass-card p-6">
+                        <h3 class="text-xl font-bold mb-4">数据管理</h3>
+                        
+                        <div class="flex flex-col space-y-4">
+                            <div>
+                                <button id="export-data-btn" class="btn-primary rounded-xl px-4 py-2 flex items-center w-full justify-center">
+                                    <i class="fas fa-file-export mr-2"></i>
+                                    导出数据
+                                </button>
+                            </div>
+                            
+                            <div>
+                                <label for="import-data" class="btn-secondary rounded-xl px-4 py-2 flex items-center w-full justify-center cursor-pointer">
+                                    <i class="fas fa-file-import mr-2"></i>
+                                    导入数据
+                                </label>
+                                <input type="file" id="import-data" accept=".json" class="hidden">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 部署信息 -->
+                    <div class="glass-card p-6 deploy-sync-section">
+                        <h3 class="text-xl font-bold mb-4">部署信息</h3>
+                        
+                        <div class="mb-4">
+                            <p class="mb-2">当前环境: <span id="environment-type" class="font-medium">本地</span></p>
+                            
+                            <div class="deploy-toggle flex items-center text-primary cursor-pointer">
+                                <span>查看部署指南</span>
+                                <i class="fas fa-chevron-down ml-2"></i>
+                            </div>
+                            
+                            <div class="deploy-guide mt-4">
+                                <div class="glass glass-light dark:glass-dark rounded-xl p-4 text-sm" id="deploy-instructions">
+                                    <h3 class="text-lg font-semibold gradient-text">部署指南</h3>
+                                    <p class="mb-2">要部署到Vercel，请按照以下步骤操作:</p>
+                                    <ol class="list-decimal pl-4 space-y-2">
+                                        <li>将代码推送到GitHub仓库</li>
+                                        <li>访问 <a href="https://vercel.com/new" target="_blank" class="text-primary underline">Vercel新项目</a></li>
+                                        <li>导入您的GitHub仓库</li>
+                                        <li>保持默认设置并点击"部署"</li>
+                                    </ol>
+                                    <p class="mt-2">部署后，您可以使用下列方式备份数据:</p>
+                                    <ul class="list-disc pl-4 space-y-1">
+                                        <li>定期导出数据 (设置 &gt; 数据管理)</li>
+                                        <li>设置GitHub同步 (设置 &gt; GitHub同步)</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 关于信息 -->
+                    <div class="glass-card p-6">
+                        <h3 class="text-xl font-bold mb-4">关于</h3>
+                        
+                        <div class="text-sm">
+                            <p class="mb-2">PromptNexus 是一个免费开源的提示词管理工具，旨在帮助您整理和管理AI提示词。</p>
+                            <p>版本: v1.1.0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 提示词表单模态框 -->
+    <div id="prompt-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="glass glass-light dark:glass-dark rounded-2xl p-6 w-full max-w-2xl mx-4 animate-fade-in">
+            <h3 id="prompt-modal-title" class="text-xl font-bold mb-4">添加新提示词</h3>
+            
+            <form id="prompt-form">
+                <input type="hidden" id="prompt-id">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">标题</label>
+                    <div class="relative">
+                        <input type="text" id="prompt-title" required class="glass glass-light dark:glass-dark rounded-xl px-4 py-2 pl-10 outline-none w-full text-base" placeholder="输入提示词标题...">
+                        <div class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                            <i class="fas fa-heading"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">分类</label>
+                    <div class="relative">
+                        <select id="prompt-category" class="glass glass-light dark:glass-dark rounded-xl px-4 py-2 pl-10 outline-none w-full text-base appearance-none">
+                            <option value="">无分类</option>
+                        </select>
+                        <div class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                            <i class="fas fa-folder"></i>
+                        </div>
+                        <div class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none">
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">标签 (用逗号分隔)</label>
+                    <div class="relative">
+                        <input type="text" id="prompt-tags" class="glass glass-light dark:glass-dark rounded-xl px-4 py-2 pl-10 outline-none w-full text-base" placeholder="AI, 写作, 创意...">
+                        <div class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                            <i class="fas fa-tags"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium mb-2">内容</label>
+                    <div class="relative">
+                        <textarea id="prompt-content" required rows="6" class="glass glass-light dark:glass-dark rounded-xl px-4 py-2 pl-10 outline-none w-full text-base" placeholder="输入提示词内容..."></textarea>
+                        <div class="absolute left-3 top-4 text-gray-400">
+                            <i class="fas fa-pen-fancy"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium mb-2">备注 (可选)</label>
+                    <div class="relative">
+                        <textarea id="prompt-note" rows="2" class="glass glass-light dark:glass-dark rounded-xl px-4 py-2 pl-10 outline-none w-full text-base" placeholder="添加关于此提示词的备注..."></textarea>
+                        <div class="absolute left-3 top-4 text-gray-400">
+                            <i class="fas fa-sticky-note"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="cancel-prompt-btn" class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-xl px-6 py-2 hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-300 flex items-center">
+                        <i class="fas fa-times mr-2"></i>
+                        取消
+                    </button>
+                    <button type="submit" id="save-prompt-btn" class="btn-primary rounded-xl px-6 py-2 flex items-center">
+                        <i class="fas fa-save mr-2"></i>
+                        保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 确认模态框 -->
+    <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="glass glass-light dark:glass-dark rounded-2xl p-6 w-full max-w-md mx-4 animate-fade-in">
+            <h3 id="confirm-title" class="text-xl font-bold mb-4">确认操作</h3>
+            <p id="confirm-message" class="mb-6">您确定要执行此操作吗？</p>
+            <div class="flex justify-end space-x-3">
+                <button id="cancel-confirm-btn" class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-xl px-4 py-2 hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-300 flex items-center">
+                    <i class="fas fa-times mr-2"></i>
+                    取消
+                </button>
+                <button id="confirm-action-btn" class="bg-red-500 text-white rounded-xl px-4 py-2 hover:bg-red-600 transition-all duration-300 flex items-center">
+                    <i class="fas fa-check mr-2"></i>
+                    确认
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 通知模板 -->
+    <div id="notification-template" class="notification hidden">
+        <div class="flex items-start">
+            <div class="notification-icon mr-3 text-xl"></div>
+            <div class="flex-1">
+                <h3 class="notification-title font-medium mb-1"></h3>
+                <p class="notification-message text-sm"></p>
+            </div>
+            <button class="close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- 密码验证模态框 -->
+    <div id="password-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="glass glass-light dark:glass-dark rounded-2xl p-6 w-full max-w-md mx-4 animate-fade-in future-glow">
+            <h2 class="text-xl font-bold mb-4 gradient-text" id="password-modal-title">验证管理员密码</h2>
+            <p class="mb-6">添加或修改提示词需要管理员密码验证。</p>
+            
+            <form id="password-form" class="space-y-6">
+                <div class="form-group">
+                    <div class="relative">
+                        <input type="password" id="admin-password" class="glass glass-light dark:glass-dark rounded-xl px-4 py-3 pl-10 outline-none w-full text-base" placeholder="输入管理员密码..." required>
+                        <div class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                    </div>
+                    <p class="text-xs mt-2 text-gray-500 dark:text-gray-400">密码由管理员在环境变量中设置</p>
+                </div>
+                
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="cancel-password-btn" class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-xl px-6 py-2 hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-300 flex items-center">
+                        <i class="fas fa-times mr-2"></i>
+                        取消
+                    </button>
+                    <button type="submit" id="verify-password-btn" class="btn-primary rounded-xl px-6 py-2 flex items-center">
+                        <i class="fas fa-check mr-2"></i>
+                        验证
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 引入自定义脚本 -->
+    <script src="js/storage.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/3d-scene.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html> 
